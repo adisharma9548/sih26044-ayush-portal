@@ -6,22 +6,34 @@ import { uploadToCloudinary } from '../config/cloudinary';
 
 export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
     const { userId } = req.params;
     const updates = req.body;
 
-    // Prevent role escalation through profile update
-    delete updates.role;
-    delete updates.password;
+    // OWASP A01: Broken Object Level Authorization (IDOR) check
+    const isOwner = !userId || userId === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
 
-    let user;
-    if (userId && mongoose.isValidObjectId(userId)) {
-      user = await User.findById(userId);
-    } else if (req.user) {
-      user = req.user;
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You are not authorized to modify another user\'s profile' } });
     }
 
-    if (!user) {
-      return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+    // Prevent privilege escalation and credential tampering through profile update
+    delete updates.role;
+    delete updates.password;
+    delete updates.isEmailVerified;
+    delete updates._id;
+
+    let user = req.user;
+    if (isAdmin && userId && mongoose.isValidObjectId(userId)) {
+      const found = await User.findById(userId);
+      if (!found) {
+        return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
+      }
+      user = found;
     }
 
     Object.assign(user, updates);
@@ -29,7 +41,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     res.json({ data: user.toSafeObject() });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to update profile' } });
   }
 };
 
@@ -127,18 +139,29 @@ export const getCandidates = async (_req: AuthRequest, res: Response) => {
 
 export const changePassword = async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
     const { currentPassword, newPassword } = req.body;
-    const userId = req.params.userId || req.user?._id;
+    const requestedUserId = req.params.userId;
+
+    // OWASP A01: IDOR check - users can only change their own password
+    if (requestedUserId && requestedUserId !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You can only change your own password' } });
+    }
+
+    const targetUserId = (req.user.role === 'admin' && requestedUserId) ? requestedUserId : req.user._id;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Current password and new password are required' } });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 6 characters long' } });
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 8 characters long' } });
     }
 
-    const user = await User.findById(userId).select('+password');
+    const user = await User.findById(targetUserId).select('+password');
     if (!user) {
       return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
     }
@@ -158,6 +181,6 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to update password' } });
   }
 };

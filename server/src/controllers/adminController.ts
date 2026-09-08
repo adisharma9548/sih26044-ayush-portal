@@ -58,12 +58,14 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
   }
 };
 
-export const getPartners = async (_req: Request, res: Response) => {
+export const getPartners = async (req: Request, res: Response) => {
   try {
-    const partners = await Partner.find({}).sort({ createdAt: -1 }).lean();
+    const user = (req as any).user;
+    const query = (user && user.role === 'admin') ? {} : { status: 'Approved' };
+    const partners = await Partner.find(query).sort({ createdAt: -1 }).lean();
     res.json({ data: partners });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to retrieve partners' } });
   }
 };
 

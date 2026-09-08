@@ -85,6 +85,11 @@ export const getMyMeetings = async (req: AuthRequest, res: Response) => {
 
 export const getMeetingById = async (req: AuthRequest, res: Response) => {
   try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
     const { id } = req.params;
     let meeting = null;
 
@@ -98,31 +103,62 @@ export const getMeetingById = async (req: AuthRequest, res: Response) => {
     if (!meeting) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Meeting not found' } });
     }
+
+    // OWASP A01: Broken Object Level Authorization check
+    const isParticipant =
+      meeting.organizerId?.toString() === user._id.toString() ||
+      meeting.participantId?.toString() === user._id.toString() ||
+      meeting.participantEmail?.toLowerCase() === user.email.toLowerCase() ||
+      user.role === 'admin';
+
+    if (!isParticipant) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied. You are not an authorized participant in this meeting.' } });
+    }
+
     res.json({ data: meeting });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to retrieve meeting' } });
   }
 };
 
 export const updateMeetingStatus = async (req: AuthRequest, res: Response) => {
   try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
     const { id } = req.params;
     const { status } = req.body;
     let meeting = null;
 
     if (mongoose.isValidObjectId(id)) {
-      meeting = await Meeting.findByIdAndUpdate(id, { status }, { new: true });
+      meeting = await Meeting.findById(id);
     }
     if (!meeting) {
-      meeting = await Meeting.findOneAndUpdate({ roomId: id }, { status }, { new: true });
+      meeting = await Meeting.findOne({ roomId: id });
     }
 
     if (!meeting) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Meeting not found' } });
     }
 
+    // OWASP A01: Broken Object Level Authorization check
+    const isParticipant =
+      meeting.organizerId?.toString() === user._id.toString() ||
+      meeting.participantId?.toString() === user._id.toString() ||
+      meeting.participantEmail?.toLowerCase() === user.email.toLowerCase() ||
+      user.role === 'admin';
+
+    if (!isParticipant) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied. You cannot modify a meeting you do not participate in.' } });
+    }
+
+    meeting.status = status;
+    await meeting.save();
+
     res.json({ data: meeting });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to update meeting status' } });
   }
 };

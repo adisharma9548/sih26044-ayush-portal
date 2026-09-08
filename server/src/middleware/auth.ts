@@ -6,6 +6,17 @@ export interface AuthRequest extends Request {
   user?: IUser;
 }
 
+export const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret === 'secret') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL SECURITY ERROR: JWT_SECRET must be configured with a strong secret in production.');
+    }
+    return 'development_fallback_jwt_secret_sih26044_ayush_2026';
+  }
+  return secret;
+};
+
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -16,8 +27,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     const token = authHeader.split(' ')[1];
-
-    const jwtSecret = process.env.JWT_SECRET || 'secret';
+    const jwtSecret = getJwtSecret();
     const decoded = jwt.verify(token, jwtSecret) as { id: string; role: string };
 
     const user = await User.findById(decoded.id);
@@ -62,7 +72,7 @@ export const optionalAuthenticate = async (req: AuthRequest, res: Response, next
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const jwtSecret = process.env.JWT_SECRET || 'secret';
+      const jwtSecret = getJwtSecret();
       const decoded = jwt.verify(token, jwtSecret) as { id: string; role: string };
       const user = await User.findById(decoded.id);
       if (user) req.user = user;

@@ -13,13 +13,21 @@ import { initRedis } from './config/redis';
 import { initSocketIO } from './services/socketService';
 import apiRouter from './routes';
 import { errorHandler } from './middleware/error';
+import { mongoSanitize } from './middleware/sanitize';
 import rateLimit from 'express-rate-limit';
 
 const app = express();
 const server = http.createServer(app);
 
 // 1. Security & Logging Middlewares
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    xContentTypeOptions: true,
+    xFrameOptions: { action: 'sameorigin' },
+  })
+);
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
@@ -77,11 +85,15 @@ const authLimiter = rateLimit({
 
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/auth/send-registration-otp', authLimiter);
 app.use('/api', globalLimiter);
 
 app.use(morgan(isProd ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(mongoSanitize);
 
 // 3. Initialize Real-Time WebSockets
 initSocketIO(server);

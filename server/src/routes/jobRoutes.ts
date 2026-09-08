@@ -5,13 +5,13 @@ import {
   createJob,
   applyJob,
 } from '../controllers/jobController';
-import { optionalAuthenticate } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
 router.get('/', getAllJobs);
 router.get('/:id', getJobById);
-router.post('/', optionalAuthenticate, createJob);
-router.post('/:id/apply', optionalAuthenticate, applyJob);
+router.post('/', authenticate, authorize('industry', 'admin'), createJob);
+router.post('/:id/apply', authenticate, applyJob);
 
 export default router;

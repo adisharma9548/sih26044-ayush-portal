@@ -6,22 +6,27 @@ import { Notification } from '../models/Notification';
 import { User } from '../models/User';
 import { Meeting } from '../models/Meeting';
 import { emitToUser } from '../services/socketService';
+import { AuthRequest } from '../middleware/auth';
 
-export const getMyApplications = async (req: Request, res: Response) => {
+export const getMyApplications = async (req: AuthRequest, res: Response) => {
   try {
-    const { userId } = req.query;
-    const query: any = {};
-    if (userId) {
-      query.userId = userId.toString();
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     }
-    const applications = await Application.find(query).sort({ createdAt: -1 }).lean();
+
+    const { userId } = req.query;
+    // Only admins can view applications belonging to other users; all other users see only their own
+    const targetUserId = (user.role === 'admin' && userId) ? userId.toString() : user._id.toString();
+
+    const applications = await Application.find({ userId: targetUserId }).sort({ createdAt: -1 }).lean();
     const formatted = applications.map((item: any) => ({
       ...item,
       id: item._id.toString(),
     }));
     res.json({ data: formatted });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to retrieve applications' } });
   }
 };
 
@@ -82,6 +87,21 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
     const application = await Application.findById(id);
     if (!application) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Application not found' } });
+    }
+
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    const isEmployerMatch = application.employerId === user._id.toString() ||
+      (application.companyName && (
+        user.institution?.toLowerCase().trim() === application.companyName?.toLowerCase().trim() ||
+        user.name?.toLowerCase().trim() === application.companyName?.toLowerCase().trim()
+      ));
+
+    if (user.role !== 'admin' && !isEmployerMatch) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You are not authorized to update this application status' } });
     }
 
     application.status = status;

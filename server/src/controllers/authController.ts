@@ -5,11 +5,11 @@ import { SkillProfile } from '../models/SkillProfile';
 import { Portfolio } from '../models/Portfolio';
 import { OtpVerification } from '../models/OtpVerification';
 import { sendOtpEmail, verifyOtp } from '../services/emailService';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getJwtSecret } from '../middleware/auth';
 import { recordAuditLog } from '../services/auditService';
 
 const generateToken = (userId: string, role: string): string => {
-  const secret = process.env.JWT_SECRET || 'secret';
+  const secret = getJwtSecret();
   const options: SignOptions = {
     expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any,
   };
@@ -20,8 +20,8 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Email and password are required' } });
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Valid email and password strings are required' } });
     }
 
     const cleanId = email.toLowerCase().trim();
@@ -286,7 +286,17 @@ export const signup = async (req: Request, res: Response) => {
       return res.status(409).json({ error: { code: 'USER_EXISTS', message: 'An account with this email address already exists' } });
     }
 
-    const effectiveRole = role || 'student';
+    // OWASP A01 / API3: Prevent privilege escalation / mass assignment to admin
+    if (role === 'admin') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Administrator accounts cannot be registered publicly.' } });
+    }
+
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters long.' } });
+    }
+
+    const allowedRoles = ['student', 'jobseeker', 'industry', 'academician'];
+    const effectiveRole = allowedRoles.includes(role) ? role : 'student';
 
     const user: any = new User({
       name: name.trim(),
@@ -355,24 +365,24 @@ export const signup = async (req: Request, res: Response) => {
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Email is required' } });
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Valid email is required' } });
     }
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
-    if (!user) {
-      return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'No registered account found with this email address' } });
+    if (user) {
+      await sendOtpEmail(cleanEmail, 'PASSWORD_RESET');
     }
 
-    await sendOtpEmail(cleanEmail, 'PASSWORD_RESET');
+    // Always return generic success message to prevent user enumeration (OWASP A07:2025)
     res.json({
       data: {
         success: true,
-        message: `Password reset verification code dispatched to ${cleanEmail}.`,
+        message: `If an account with ${cleanEmail} exists, a password reset verification code has been dispatched.`,
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to process password reset' } });
   }
 };
 

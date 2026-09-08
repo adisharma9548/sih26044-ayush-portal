@@ -4,12 +4,12 @@ import {
   getCompanyApplicants,
   updateApplicationStatus,
 } from '../controllers/applicationController';
-import { optionalAuthenticate } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/my', optionalAuthenticate, getMyApplications);
-router.get('/company', optionalAuthenticate, getCompanyApplicants);
-router.patch('/:id/status', optionalAuthenticate, updateApplicationStatus);
+router.get('/my', authenticate, getMyApplications);
+router.get('/company', authenticate, authorize('industry', 'admin'), getCompanyApplicants);
+router.patch('/:id/status', authenticate, authorize('industry', 'admin'), updateApplicationStatus);
 
 export default router;
