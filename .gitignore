@@ -2,9 +2,12 @@
 .env
 .env.*
 *.env
+client/.env
+client/.env.*
 server/.env
 server/.env.*
 !.env.example
+!client/.env.example
 !server/.env.example
 *.pem
 *.key
@@ -13,6 +16,7 @@ secrets/
 
 # Dependencies
 node_modules/
+client/node_modules/
 server/node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -21,6 +25,7 @@ pnpm-debug.log*
 
 # Production Builds
 dist/
+client/dist/
 server/dist/
 build/
 out/

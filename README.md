@@ -3,67 +3,158 @@
 **National Portal for Academia–Industry Collaboration for Skill Mapping, Internships and Placement in Indian Ayush & Herbal Bio-Pharma**
 
 > Developed for **Smart India Hackathon (Problem ID: SIH26044)**  
-> **"Backend-Ready but No Backend" Architecture** with full TypeScript typed mock service layer.
+> **Production-Ready Decoupled Architecture**: Separate `client/` (frontend) and `server/` (backend) for easy, independent deployments.
 
 ---
 
-## 🌟 Key Features & Ecosystem Highlights
+## 🌟 Architecture Overview
 
-1. **4 Role Ecosystem (28 Functional Screens)**:
-   - **Student (10 screens)**: Skill Assessment Quiz, SVG Competency Radar & Gap Analysis, AI-Recommended Courses, Searchable Internships Directory with Stipends, Full-Time Graduate Jobs, My Applications Lifecycle Tracker, and Verified Digital Portfolio with badges.
-   - **Industry (5 screens)**: Recruiter Overview, Post New Internship / Job Form, Sponsor Learning Module Form, Manage & Review Candidate Applications (with resume modal), and Talent Scout Candidate Search.
-   - **Academician (3 screens)**: Guided Faculty Dashboard, Industry Immersion Programs & Joint Grants, Student 1-on-1 Mentorship Request Manager & Workshop Creator.
-   - **Institution Admin (4 screens)**: Macro Institutional KPIs, Student & Faculty Progress Metrics, Regulatory Analytics with simulated PDF / CSV Export, and Partner Organization Accreditation Governance.
-   - **Common / Authentication (6 screens)**: Impactful Landing Page, 1-Click Instant Demo Login, Contextual Signup, Forgot/Reset Password OTP flow, Notification Feed, Profile & Settings.
+The repository is organized into distinct, isolated directories for frontend and backend:
 
-2. **Hackathon Judge 1-Click Role Switcher**:
-   - A sticky, prominent bar at the very top of the app allowing evaluators and presentation judges to instantly switch between **Student**, **Industry**, **Academician**, and **Institution Admin** with zero typing!
-
-3. **Domain-Specific Ayush Realism**:
-   - Tailored specifically to Indian Ayush entities: **Dabur Research Foundation**, **Himalaya Wellness**, **CCRAS (Central Council for Research in Ayurvedic Sciences)**, **All India Institute of Ayurveda (AIIA)**, **Patanjali Bio-Research**, **Kottakkal Arya Vaidya Sala**, and **Charak Pharma**.
-   - Technical competencies mapped against **Schedule T GMP**, **Ayurvedic Pharmacopoeia (API)**, **HPTLC Fingerprinting**, **Clinical Rog Nidan**, and **GCP Protocols**.
-
-4. **"Backend-Ready" Architecture**:
-   - Every API call lives in `src/services/api.ts` returning `Promise<{ data: T }>` with synthetic network latency.
-   - Swapping to a production Express/FastAPI/NestJS backend only requires changing the base URL and fetch dispatchers in `api.ts`.
+```
+sih26044-ayush-portal/
+├── client/                               # FRONTEND (React 18 + Vite + Tailwind CSS)
+│   ├── src/                              # React components, pages, stores, hooks
+│   │   ├── components/                   # Reusable UI components & modals
+│   │   ├── layouts/                      # DashboardLayout, PublicLayout, ProtectedRoute
+│   │   ├── pages/                        # 28 functional screens across 4 user roles
+│   │   ├── services/                     # Unified API dispatcher & mock dataset
+│   │   ├── store/                        # Zustand stores (auth, notifications, apps)
+│   │   └── types/                        # TypeScript interfaces & domain types
+│   ├── public/                           # Static assets & Netlify _redirects
+│   ├── index.html                        # Application HTML entry
+│   ├── package.json                      # Frontend dependencies & scripts
+│   ├── vite.config.ts                    # Vite bundler configuration
+│   ├── tsconfig.json                     # Frontend TypeScript configuration
+│   ├── tailwind.config.js                # Tailwind CSS design system
+│   ├── vercel.json                       # Vercel SPA route rewrite rules
+│   ├── .env.example                      # Frontend environment variable template
+│   └── .gitignore
+│
+├── server/                               # BACKEND (Node.js + Express + TypeScript + MongoDB)
+│   ├── src/
+│   │   ├── config/                       # Database, Redis, and Cloudinary config
+│   │   ├── controllers/                  # Route business logic handlers
+│   │   ├── middleware/                   # Auth (JWT), rate limiting, error handlers
+│   │   ├── models/                       # Mongoose schemas (User, Internship, Job, etc.)
+│   │   ├── routes/                       # Express REST API route definitions
+│   │   ├── services/                     # Socket.IO WebRTC, AI Groq, Email service
+│   │   └── server.ts                     # Main Express server entry point
+│   ├── package.json                      # Backend dependencies & scripts
+│   ├── tsconfig.json                     # Server TypeScript configuration
+│   ├── .env.example                      # Backend environment variable template
+│   └── .gitignore
+│
+├── package.json                          # Monorepo root orchestration scripts
+├── .gitignore                            # Root gitignore
+└── README.md                             # Project & deployment documentation
+```
 
 ---
 
-## 🛠️ Technology Stack
+## 🚀 Quick Start (Local Development)
 
-- **Frontend**: React 18 + TypeScript
-- **Build Tool**: Vite 5
-- **Styling**: Tailwind CSS 3.4
-- **Icons**: Lucide React
-- **State Management**: Zustand
-- **Routing**: React Router DOM v6 with role-based route guards
-- **Data Visualizations**: Custom SVG Radar Chart & Circular Progress Gauges
-
----
-
-## 🚀 Quick Start Guide
-
-### 1. Installation
-Navigate to the project directory and install dependencies:
-
+### 1. Install Dependencies
+You can install dependencies for both client and server from the root directory:
 ```bash
-cd C:\Users\adish\.gemini\antigravity\scratch\sih26044-ayush-portal
-npm install
+npm run install:all
 ```
+*(Or navigate into each directory: `cd client && npm install` and `cd server && npm install`)*
 
-### 2. Run Development Server
-```bash
-npm run dev
-```
-Open your browser and navigate to:
-```
-http://localhost:5173
-```
+### 2. Configure Environment Variables
+- **Frontend (`client/`)**:
+  Copy `client/.env.example` to `client/.env`:
+  ```bash
+  VITE_API_URL=http://localhost:5000/api
+  VITE_BACKEND_URL=http://localhost:5000
+  ```
+- **Backend (`server/`)**:
+  Copy `server/.env.example` to `server/.env`:
+  ```bash
+  PORT=5000
+  NODE_ENV=development
+  FRONTEND_URL=http://localhost:5173
+  CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+  MONGODB_URI=your_mongodb_connection_string
+  JWT_SECRET=your_jwt_secret_key
+  ```
 
-### 3. Build for Production
+### 3. Run Development Servers
+From the root directory:
+- **Run Frontend Client**:
+  ```bash
+  npm run dev:client
+  ```
+  *(Runs on `http://localhost:5173`)*
+
+- **Run Backend Server**:
+  ```bash
+  npm run dev:server
+  ```
+  *(Runs on `http://localhost:5000`)*
+
+### 4. Build for Production
+To build both client and server from the root:
 ```bash
 npm run build
 ```
+Or build each individually:
+- Client: `npm run build:client` (output in `client/dist/`)
+- Server: `npm run build:server` (output in `server/dist/`)
+
+---
+
+## 🌐 Deployment Instructions
+
+Because the frontend and backend are decoupled, you can deploy them easily to your choice of modern cloud providers.
+
+### Option 1: Frontend Deployment (Client)
+
+#### Deploying on Vercel
+1. Link your GitHub repository in Vercel.
+2. Under **Project Settings**:
+   - **Root Directory**: `client`
+   - **Framework Preset**: `Vite`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+3. Add Environment Variables:
+   - `VITE_API_URL`: Your deployed backend API URL (e.g. `https://ayush-api.onrender.com/api`)
+   - `VITE_BACKEND_URL`: Your deployed backend root URL (e.g. `https://ayush-api.onrender.com`)
+4. The included `client/vercel.json` automatically handles SPA routing.
+
+#### Deploying on Netlify
+1. Connect your repository in Netlify.
+2. Configure build settings:
+   - **Base directory**: `client`
+   - **Build command**: `npm run build`
+   - **Publish directory**: `client/dist`
+3. Add Environment Variables (`VITE_API_URL`, `VITE_BACKEND_URL`).
+4. The included `client/public/_redirects` ensures React Router SPA URLs work without 404s.
+
+---
+
+### Option 2: Backend Deployment (Server)
+
+#### Deploying on Render (Web Service)
+1. Create a **New Web Service** pointing to your repository.
+2. Configure settings:
+   - **Root Directory**: `server`
+   - **Environment**: `Node`
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+3. Add Environment Variables:
+   - `PORT`: `5000` (or leave default, Render supplies `PORT`)
+   - `NODE_ENV`: `production`
+   - `MONGODB_URI`: `mongodb+srv://...`
+   - `JWT_SECRET`: A secure random secret string
+   - `FRONTEND_URL`: Your deployed client URL (e.g. `https://ayush-portal.vercel.app`)
+   - `CORS_ORIGINS`: Your deployed client URL (e.g. `https://ayush-portal.vercel.app`)
+
+#### Deploying on Railway
+1. Create a new service and set **Root Directory** to `/server`.
+2. Railway detects Node.js automatically.
+3. Set build command `npm run build` and start command `npm start`.
+4. Supply your MongoDB and JWT variables in the Railway Variables tab.
 
 ---
 
@@ -75,37 +166,6 @@ npm run build
 | **Industry** | Dr. Vikram Malhotra | Dabur Research & Development Centre (DRDC) | `/industry/dashboard` |
 | **Academician** | Prof. Rajeshwar Shastri | National Institute of Ayurveda (NIA), Jaipur | `/academician/dashboard` |
 | **Admin** | Dr. Sunita Kulkarni | Ministry of Ayush / Central Accreditation Council | `/admin/dashboard` |
-
----
-
-## 📂 Project Structure
-
-```
-sih26044-ayush-portal/
-├── src/
-│   ├── types/               # Core domain interfaces (User, Internship, Job, SkillProfile, etc.)
-│   ├── services/            # API dispatcher & mock Ayush dataset
-│   │   ├── api.ts           # Unified API layer returning Promise<{ data: T }>
-│   │   └── mockData.ts      # Seed database for Ayush entities
-│   ├── store/               # Zustand state stores
-│   │   ├── useAuthStore.ts
-│   │   ├── useNotificationStore.ts
-│   │   └── useApplicationStore.ts
-│   ├── hooks/               # useAuth, useDebounce
-│   ├── utils/               # formatters, helpers
-│   ├── components/
-│   │   ├── common/          # Navbar, Sidebar, Footer, DemoRoleSwitcher, Modal, Badge, RadarChart, GaugeScore
-│   ├── layouts/             # PublicLayout, DashboardLayout, ProtectedRoute
-│   ├── pages/
-│   │   ├── common/          # Landing, Login, Signup, ForgotPassword, Notifications, Profile
-│   │   ├── student/         # Dashboard, Assessment, Skills Radar, Learning, Internships, Jobs, Applications, Portfolio
-│   │   ├── industry/        # Dashboard, Post, PostProgram, Applicants, CandidateSearch
-│   │   ├── academician/     # Dashboard, Opportunities, Mentorship
-│   │   └── admin/           # Dashboard, Progress, AnalyticsReports, ManageUsers
-│   ├── App.tsx              # React Router setup
-│   ├── main.tsx             # DOM entry point
-│   └── index.css            # Tailwind directives
-```
 
 ---
 
