@@ -41,12 +41,14 @@ const ApplicationSchema: Schema = new Schema(
     resumeUrl: { type: String },
     coverNote: { type: String },
     interviewDate: { type: String },
-    skillMatchPercentage: { type: Number, default: 85 },
+    skillMatchPercentage: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
 ApplicationSchema.index({ userId: 1, opportunityId: 1 }, { unique: true });
+ApplicationSchema.index({ employerId: 1, status: 1, createdAt: -1 });
+ApplicationSchema.index({ companyName: 1, status: 1 });
 
 ApplicationSchema.set('toJSON', {
   virtuals: true,

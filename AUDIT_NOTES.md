@@ -241,3 +241,52 @@ Systematically traced each feature chain from UI to database:
 7. **Verification**:
    - Frontend `tsc --noEmit`: 0 errors.
    - Server `tsc`: 0 errors.
+
+---
+
+## 8. Phase 4 — Database Schema Audit & SIH26044 Compliance Matrix
+
+### 8.1 Database Indexes & Schema Integrity Audit
+All 17 Mongoose schemas were forensically reviewed and fortified:
+- **`Application.ts`**:
+  - Removed deceptive default `skillMatchPercentage: 85`; changed to `skillMatchPercentage: { type: Number, default: 0 }`.
+  - Added compound index `{ employerId: 1, status: 1, createdAt: -1 }` for recruiter candidate dossier queries.
+  - Added compound index `{ companyName: 1, status: 1 }` for company applicant pipeline.
+  - Preserved unique constraint `{ userId: 1, opportunityId: 1 }` preventing duplicate applications.
+- **`Assessment.ts`**:
+  - Added compound index `{ userId: 1, evaluatedAt: -1 }` on `AssessmentAttemptSchema`.
+  - Added index `{ evaluatedAt: 1 }` for national monthly skill trajectory aggregation.
+- **`Notification.ts`**:
+  - Added compound index `{ userId: 1, read: 1, createdAt: -1 }` for instant unread badge lookup.
+- **`Meeting.ts`**:
+  - Added compound indexes `{ organizerId: 1, scheduledAt: 1 }` and `{ participantId: 1, scheduledAt: 1 }`.
+  - Unique constraint verified on `roomId`.
+- **`User.ts`**:
+  - Added compound indexes `{ role: 1, department: 1 }` and `{ role: 1, institution: 1 }` for NEP 2020 institutional progress monitoring.
+  - Preserved unique index on `email`.
+- **`SkillProfile.ts`**:
+  - Added index `{ overallScore: 1 }` for real-time mathematical percentile ranking and at-risk scholar queries.
+- **`MouProposal.ts`**:
+  - Added query indexes `{ initiatorId: 1, createdAt: -1 }`, `{ targetOrganization: 1 }`, and `{ status: 1 }`.
+- **`OtpVerification.ts`**:
+  - Verified native MongoDB TTL expiry index `{ createdAt: 1, expires: 600 }` (10-minute automated purge).
+
+### 8.2 SIH26044 Problem Statement Compliance Matrix
+Official Title: *"Portal for Academia – Industry Collaboration for Skill Mapping, Internships and Placement"*
+Sponsoring Ministry: Ministry of Ayush | Domain Framework: Higher Education & UGC Accreditation
+
+| PS Core Requirement | Implementation Status | Primary Frontend Files | Primary Backend Files | Verification Method |
+|:---|:---:|:---|:---|:---|
+| **Multi-Stakeholder Architecture** (Students, Faculty, Recruiters, Admin) | **COMPLETE** | `src/App.tsx`, `src/layouts/`, `src/hooks/useAuth.ts` | `server/src/models/User.ts`, `server/src/middleware/auth.ts` | Role-based router guards + JWT authorization middleware |
+| **UGC Section 22 Degree Recognition & Debounce** | **COMPLETE** | `src/components/common/UGCDegreeSelector.tsx`, `src/hooks/useUGCDegreeSearch.ts` | `server/src/controllers/ugcDegreeController.ts`, `server/src/services/aiService.ts` | 500ms debounce gap, authoritative UGC catalog + AI verification |
+| **Authentic AI Skill Diagnostic & Gap Mapping** | **COMPLETE** | `src/components/student/AiOnboardingModal.tsx`, `src/pages/student/SkillAssessmentPage.tsx` | `server/src/controllers/aiController.ts`, `server/src/services/aiService.ts` | Authentic score calculation (0-100%, no inflation), dynamic radar aggregation |
+| **Mandatory Diagnostic Gate & roadmap.sh Integration** | **COMPLETE** | `src/components/student/AiOnboardingModal.tsx`, `src/pages/student/StudentDashboard.tsx` | `server/src/services/roadmapService.ts`, `server/src/services/aiService.ts` | 5-wrong answer threshold triggers study timeline + roadmap.sh community links & credits |
+| **Internship & Placement Opportunity CRUD** | **COMPLETE** | `src/pages/industry/PostOpportunityPage.tsx`, `src/pages/student/InternshipsPage.tsx` | `server/src/controllers/internshipController.ts`, `server/src/controllers/jobController.ts` | Full CRUD routes (GET, POST, PUT, DELETE) with ownership guards |
+| **Explainable Candidate-Job Compatibility Engine** | **COMPLETE** | `src/pages/student/InternshipDetailPage.tsx`, `src/pages/industry/ManageApplicantsPage.tsx` | `server/src/services/skillGapService.ts`, `server/src/services/matchingService.ts` | Real intersection of candidate verified skills vs posting requirements |
+| **Application Lifecycle & State Transitions** | **COMPLETE** | `src/pages/industry/ManageApplicantsPage.tsx`, `src/pages/student/MyApplicationsPage.tsx` | `server/src/controllers/applicationController.ts`, `server/src/models/Application.ts` | Transitions: `applied` → `in_review` → `interview_scheduled` → `offered`/`rejected` |
+| **In-App WebRTC Peer-to-Peer Interview Calls** | **COMPLETE** | `src/pages/common/MeetingRoomPage.tsx` | `server/src/services/socketService.ts`, `server/src/controllers/meetingController.ts` | WebRTC signaling with SDP offer/answer, ICE candidates, live whiteboard & chat |
+| **Institutional MoU Lifecycle & Digital Seal** | **COMPLETE** | `src/components/common/MouProposalModal.tsx`, `src/pages/academician/AcademicianDashboard.tsx` | `server/src/controllers/mouController.ts`, `server/src/models/MouProposal.ts` | Proposal drafting, institutional review, cryptographic digital seal generation |
+| **National Verified Digital Portfolio & Resume** | **COMPLETE** | `src/pages/student/DigitalPortfolioPage.tsx` | `server/src/controllers/skillController.ts`, `server/src/models/Portfolio.ts` | IDOR-safe user scoping, verified skill certificates, project showcase |
+| **NEP 2020 Institutional Progress Analytics** | **COMPLETE** | `src/pages/admin/StudentFacultyProgressPage.tsx`, `src/pages/admin/AnalyticsReportsPage.tsx` | `server/src/controllers/adminController.ts` | MongoDB aggregations: departmental averages, cohort trends, at-risk interventions |
+| **OWASP Top 10 Security Architecture** | **COMPLETE** | `src/services/api.ts` | `server/src/middleware/auth.ts`, `server/src/server.ts` | Fatal startup check for JWT_SECRET/MONGO_URI, BOLA/IDOR protection, CORS strictness |
+| **Zero Mock / Fake Data Guarantee** | **COMPLETE** | Entire `src/` tree | Entire `server/src/` tree | All hardcoded percentages, artificial clamps, and demo role switchers eliminated |

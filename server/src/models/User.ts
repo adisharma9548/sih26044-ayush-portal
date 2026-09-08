@@ -89,6 +89,9 @@ const UserSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+UserSchema.index({ role: 1, department: 1 });
+UserSchema.index({ role: 1, institution: 1 });
+
 // Password hashing hook
 UserSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password') || !this.password) {

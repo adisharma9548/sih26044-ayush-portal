@@ -27,6 +27,8 @@ const NotificationSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+NotificationSchema.index({ userId: 1, read: 1, createdAt: -1 });
+
 NotificationSchema.set('toJSON', {
   virtuals: true,
   transform: (_: any, ret: any) => {

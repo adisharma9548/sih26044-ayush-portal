@@ -45,6 +45,10 @@ const MouProposalSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+MouProposalSchema.index({ initiatorId: 1, createdAt: -1 });
+MouProposalSchema.index({ targetOrganization: 1 });
+MouProposalSchema.index({ status: 1 });
+
 MouProposalSchema.set('toJSON', {
   virtuals: true,
   transform: (_: any, ret: any) => {

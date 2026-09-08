@@ -59,4 +59,6 @@ const SkillProfileSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+SkillProfileSchema.index({ overallScore: 1 });
+
 export const SkillProfile = mongoose.model<ISkillProfile>('SkillProfile', SkillProfileSchema);

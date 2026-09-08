@@ -49,6 +49,9 @@ const MeetingSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+MeetingSchema.index({ organizerId: 1, scheduledAt: 1 });
+MeetingSchema.index({ participantId: 1, scheduledAt: 1 });
+
 MeetingSchema.set('toJSON', {
   virtuals: true,
   transform: (_: any, ret: any) => {

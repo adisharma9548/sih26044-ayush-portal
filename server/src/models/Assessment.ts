@@ -44,4 +44,7 @@ const AssessmentAttemptSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+AssessmentAttemptSchema.index({ userId: 1, evaluatedAt: -1 });
+AssessmentAttemptSchema.index({ evaluatedAt: 1 });
+
 export const AssessmentAttempt = mongoose.model<IAssessmentAttempt>('AssessmentAttempt', AssessmentAttemptSchema);
