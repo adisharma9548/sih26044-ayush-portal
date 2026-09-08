@@ -1,0 +1,262 @@
+export type UserRole = 'student' | 'jobseeker' | 'industry' | 'academician' | 'admin';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  profilePicture?: string;
+  institution?: string;
+  industry?: string;
+  department?: string;
+  designation?: string;
+  degree?: string;
+  graduationYear?: number;
+  location?: string;
+  phone?: string;
+  bio?: string;
+  skills?: string[];
+  ayushDomain?: 'Ayurveda' | 'Yoga & Naturopathy' | 'Unani' | 'Siddha' | 'Homoeopathy' | 'Interdisciplinary' | 'Technology & Engineering';
+  currentDomain?: string;
+  targetDomain?: string;
+  loginCount?: number;
+  studyRoadmap?: {
+    recommendedDays?: number;
+    recommendedTimeline?: string;
+    retryAfterDate?: string;
+    targetedTopics?: string[];
+    studyAdvice?: string;
+    score?: number;
+    totalQuestions?: number;
+    correctAnswers?: number;
+    wrongAnswers?: number;
+    mandatoryNotice?: string;
+    roadmaps?: RoadmapGuidance[];
+    createdAt?: string;
+  };
+  verified?: boolean;
+}
+
+export interface Internship {
+  id: string;
+  title: string;
+  company: string;
+  companyLogo?: string;
+  location: string;
+  isRemote?: boolean;
+  stipend: string;
+  duration: string;
+  skillsRequired: string[];
+  description: string;
+  responsibilities?: string[];
+  requirements?: string[];
+  postedDate: string;
+  deadline: string;
+  status: 'active' | 'closed' | 'draft';
+  ayushDomain: string;
+  openings: number;
+  postedBy?: string;
+}
+
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  companyLogo?: string;
+  location: string;
+  isRemote?: boolean;
+  salary: string;
+  experienceLevel: string;
+  skillsRequired: string[];
+  description: string;
+  responsibilities?: string[];
+  requirements?: string[];
+  postedDate: string;
+  deadline: string;
+  status: 'active' | 'closed' | 'draft';
+  ayushDomain: string;
+  openings: number;
+  postedBy?: string;
+}
+
+export interface SkillItem {
+  name: string;
+  level: number; // 0 - 100
+  industryBenchmark: number; // 0 - 100
+  verified: boolean;
+  category: 'Phytochemistry' | 'Clinical Practice' | 'Regulatory & GMP' | 'Research Methodology' | 'Pharmacovigilance' | 'General';
+}
+
+export interface SkillGap {
+  skill: string;
+  currentLevel: number;
+  requiredLevel: number;
+  gapPercentage: number;
+  priority: 'High' | 'Medium' | 'Low';
+  recommendedProgramId?: string;
+}
+
+export interface SkillProfile {
+  userId: string;
+  overallScore: number; // 0 - 100
+  rankPercentile: number;
+  skills: SkillItem[];
+  gapAnalysis: SkillGap[];
+  lastAssessmentDate: string;
+}
+
+export interface LearningProgram {
+  id: string;
+  title: string;
+  provider: string;
+  providerLogo?: string;
+  type: 'course' | 'certification' | 'workshop';
+  duration: string;
+  skillsCovered: string[];
+  description: string;
+  rating: number;
+  enrolledCount: number;
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  isSponsored?: boolean;
+  ayushDomain: string;
+  cost: string;
+  syllabus?: string[];
+}
+
+export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'offered' | 'rejected';
+
+export interface Application {
+  id: string;
+  userId: string;
+  studentName?: string;
+  studentEmail?: string;
+  studentInstitute?: string;
+  opportunityId: string;
+  type: 'internship' | 'job';
+  opportunityTitle: string;
+  companyName: string;
+  status: ApplicationStatus;
+  appliedDate: string;
+  resumeUrl?: string;
+  coverNote?: string;
+  interviewDate?: string;
+  skillMatchPercentage?: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  read: boolean;
+  timestamp: string;
+  type: 'application' | 'mentorship' | 'match' | 'system';
+  link?: string;
+}
+
+export interface AssessmentQuestion {
+  id: number;
+  category: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  weight: number;
+}
+
+export interface Workshop {
+  id: string;
+  title: string;
+  organizer: string;
+  facultyName: string;
+  date: string;
+  time: string;
+  mode: 'Online' | 'Offline' | 'Hybrid';
+  location?: string;
+  capacity: number;
+  registeredCount: number;
+  status: 'upcoming' | 'ongoing' | 'completed';
+  description: string;
+  targetAudience: string;
+}
+
+export interface FacultyOpportunity {
+  id: string;
+  title: string;
+  organization: string;
+  type: 'FDP' | 'Research Collaboration' | 'Consultancy' | 'Immersion';
+  stipendOrGrant: string;
+  duration: string;
+  deadline: string;
+  description: string;
+  requirements: string[];
+  ayushDomain: string;
+  status: 'open' | 'closed';
+}
+
+export interface MentorshipRequest {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  facultyId: string;
+  facultyName: string;
+  topic: string;
+  message: string;
+  preferredDate: string;
+  status: 'pending' | 'accepted' | 'completed' | 'declined';
+  meetingLink?: string;
+}
+
+export interface StudentCertificate {
+  id: string;
+  title: string;
+  issuer: string;
+  issueDate: string;
+  credentialUrl?: string;
+  verified: boolean;
+  badgeIcon: string;
+}
+
+export interface StudentProject {
+  id: string;
+  title: string;
+  role: string;
+  technologies: string[];
+  description: string;
+  link?: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UGCDegreeSuggestion {
+  name: string;
+  fullName: string;
+  category: string;
+  ugcApproved: boolean;
+  level: string;
+}
+
+export interface RoadmapModule {
+  title?: string;
+  stage?: string;
+  description?: string;
+  topics: string[];
+  moduleUrl?: string;
+}
+
+export interface RoadmapGuidance {
+  skill: string;
+  roadmapTitle?: string;
+  roadmapSlug?: string;
+  canonicalRoadmap?: string;
+  roadmapUrl: string;
+  description: string;
+  difficulty?: string;
+  estimatedHours?: string;
+  modules: RoadmapModule[];
+  credit: string;
+  creditUrl: string;
+}
+
+

@@ -1,0 +1,42 @@
+# Environment & Secrets (CRITICAL)
+.env
+.env.*
+*.env
+server/.env
+server/.env.*
+!.env.example
+!server/.env.example
+*.pem
+*.key
+*.cert
+secrets/
+
+# Dependencies
+node_modules/
+server/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production Builds
+dist/
+server/dist/
+build/
+out/
+
+# IDE & Editor files
+.vscode/
+.idea/
+
+# OS Generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Logs and runtime
+*.log
+logs/
+.system_generated/
+scratch/
+brain/
