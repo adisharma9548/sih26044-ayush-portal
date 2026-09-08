@@ -55,12 +55,17 @@ const seedDatabase = async () => {
     }
     console.log('[Seed] Database completely cleansed of all mockups and dummy applicants.');
 
-    // 1. Seed Pre-configured Administrator (Username: admin, Password: admin)
-    console.log('[Seed] Pre-seeding System Administrator (username: admin / password: admin)...');
+    // 1. Seed Pre-configured Administrator via Environment Bootstrap
+    const crypto = await import('crypto');
+    const adminEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@skillbridge.gov.in').toLowerCase().trim();
+    const adminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
+    const isGeneratedPassword = !process.env.BOOTSTRAP_ADMIN_PASSWORD && !process.env.ADMIN_PASSWORD;
+
+    console.log(`[Seed] Initializing System Administrator (${adminEmail})...`);
     await User.create({
       name: 'System Administrator',
-      email: 'admin@skillbridge.gov.in',
-      password: 'admin',
+      email: adminEmail,
+      password: adminPassword,
       role: 'admin',
       institution: 'SkillBridge National Directorate',
       department: 'Platform Administration & Security',
@@ -69,15 +74,16 @@ const seedDatabase = async () => {
       bio: 'Administrator account for SkillBridge National Collaboration and Competency Mapping Portal.',
       isEmailVerified: true,
       verified: true,
+      requiresPasswordReset: true,
     });
 
     // 2. Only Administrator account is retained per specification. All other collections remain clean.
     console.log('[Seed] All other collections (Opportunities, Applications, Questions, Partners) left pristine for real data.');
 
-    // 5. System Audit Log
+    // 3. System Audit Log
     console.log('[Seed] Recording System Initialization Audit Log...');
     await AuditLog.create({
-      userEmail: 'admin@skillbridge.gov.in',
+      userEmail: adminEmail,
       userRole: 'admin',
       action: 'SYSTEM_INITIALIZATION',
       entity: 'System',
@@ -85,16 +91,22 @@ const seedDatabase = async () => {
       details: {
         platform: 'SkillBridge National Portal',
         version: '2.0.0-clean',
-        environment: 'production',
-        adminAccount: 'admin@skillbridge.gov.in',
+        environment: process.env.NODE_ENV || 'development',
+        adminAccount: adminEmail,
+        requiresPasswordReset: true,
       },
     });
 
     console.log('------------------------------------------------------------');
     console.log(' [SUCCESS] Database clean & re-seed completed successfully!');
     console.log(' -> All fake mockups, dummy students, & applications deleted.');
-    console.log(' -> Pre-seeded Admin: Username "admin" (or admin@skillbridge.gov.in) with password "admin"');
-    console.log(' -> Real technology opportunities and multi-disciplinary framework active.');
+    console.log(` -> Admin Account initialized: ${adminEmail}`);
+    if (isGeneratedPassword) {
+      console.log(' -> Temporary bootstrap password generated. (Please set ADMIN_PASSWORD in your .env or reset via OTP).');
+    } else {
+      console.log(' -> Configured with custom password from environment variables.');
+    }
+    console.log(' -> Password reset flag (requiresPasswordReset) set to TRUE for security.');
     console.log('------------------------------------------------------------');
 
     process.exit(0);

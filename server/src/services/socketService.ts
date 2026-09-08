@@ -2,13 +2,19 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
 
+import { getJwtSecret } from '../middleware/auth';
+
 let io: SocketIOServer | null = null;
 const userSocketMap = new Map<string, string[]>(); // userId -> socketId[]
 
 export const initSocketIO = (httpServer: HTTPServer) => {
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
+      origin: allowedOrigins,
       methods: ['GET', 'POST', 'PATCH'],
       credentials: true,
     },
@@ -21,7 +27,7 @@ export const initSocketIO = (httpServer: HTTPServer) => {
     }
 
     try {
-      const jwtSecret = process.env.JWT_SECRET || 'secret';
+      const jwtSecret = getJwtSecret();
       const decoded = jwt.verify(token, jwtSecret) as { id: string; role: string };
       (socket as any).userId = decoded.id;
       (socket as any).userRole = decoded.role;

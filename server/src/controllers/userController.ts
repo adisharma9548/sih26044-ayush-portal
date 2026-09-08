@@ -172,6 +172,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     }
 
     user.password = newPassword;
+    user.requiresPasswordReset = false;
     await user.save();
 
     res.json({

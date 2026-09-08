@@ -8,11 +8,8 @@ export interface AuthRequest extends Request {
 
 export const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret === 'secret') {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL SECURITY ERROR: JWT_SECRET must be configured with a strong secret in production.');
-    }
-    return 'development_fallback_jwt_secret_sih26044_ayush_2026';
+  if (!secret) {
+    throw new Error('FATAL SECURITY ERROR: JWT_SECRET environment variable is missing. The server cannot sign or verify tokens securely.');
   }
   return secret;
 };

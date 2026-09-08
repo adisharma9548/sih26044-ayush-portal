@@ -3,6 +3,15 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config();
 
+if (!process.env.JWT_SECRET) {
+  console.error('[FATAL CONFIGURATION ERROR] JWT_SECRET environment variable is missing.');
+  process.exit(1);
+}
+if (!process.env.MONGODB_URI) {
+  console.error('[FATAL CONFIGURATION ERROR] MONGODB_URI environment variable is missing.');
+  process.exit(1);
+}
+
 import express from 'express';
 import http from 'http';
 import cors from 'cors';

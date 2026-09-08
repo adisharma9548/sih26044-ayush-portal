@@ -425,6 +425,7 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
     }
 
     user.password = newPassword;
+    user.requiresPasswordReset = false;
     await user.save();
     await OtpVerification.deleteOne({ _id: record._id });
 
