@@ -86,8 +86,8 @@ export const getProposals = async (req: Request, res: Response) => {
 export const reviewProposal = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Only institutional administrators can review MoUs' } });
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     }
 
     const { id } = req.params;
@@ -100,6 +100,16 @@ export const reviewProposal = async (req: Request, res: Response) => {
     const proposal = await MouProposal.findById(id);
     if (!proposal) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'MoU Proposal not found' } });
+    }
+
+    const isTargetInstMatch = Boolean(
+      user.institution &&
+      proposal.targetOrganization &&
+      proposal.targetOrganization.toLowerCase().includes(user.institution.toLowerCase())
+    );
+
+    if (user.role !== 'admin' && !isTargetInstMatch) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Only designated institutional representatives or administrators can review MoUs' } });
     }
 
     proposal.status = status;

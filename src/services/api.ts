@@ -211,6 +211,19 @@ export const internshipService = {
       method: 'POST',
       body: JSON.stringify(params),
     });
+  },
+
+  update: async (id: string, payload: Partial<Internship>): Promise<{ data: Internship }> => {
+    return apiRequest(`/internships/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  delete: async (id: string): Promise<{ data: { message: string } }> => {
+    return apiRequest(`/internships/${id}`, {
+      method: 'DELETE',
+    });
   }
 };
 
@@ -238,6 +251,19 @@ export const jobService = {
     return apiRequest(`/jobs/${params.opportunityId}/apply`, {
       method: 'POST',
       body: JSON.stringify(params),
+    });
+  },
+
+  update: async (id: string, payload: Partial<Job>): Promise<{ data: Job }> => {
+    return apiRequest(`/jobs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  delete: async (id: string): Promise<{ data: { message: string } }> => {
+    return apiRequest(`/jobs/${id}`, {
+      method: 'DELETE',
     });
   }
 };

@@ -213,3 +213,31 @@ Every instance of artificial data fabrication, fake fallback percentages, and ma
 - **`src/pages/student/StudentDashboard.tsx`**: Removed `|| 80` national rank percentile fallback.
 - **Files Deleted**: `src/components/common/DemoRoleSwitcher.tsx` and `src/services/mockData.ts`.
 - **Verification**: Both `tsc --noEmit` and `vite build` completed with 0 errors. Backend `tsc` completed with 0 errors.
+
+---
+
+## 7. Phase 3 — Full-Stack Data-Flow Audit & Vulnerability Remediation
+Systematically traced each feature chain from UI to database:
+1. **Opportunity Management**:
+   - Added `updateInternship` (`PUT /api/internships/:id`) and `deleteInternship` (`DELETE /api/internships/:id`) with strict owner/admin authorization.
+   - Added `updateJob` (`PUT /api/jobs/:id`) and `deleteJob` (`DELETE /api/jobs/:id`) with strict owner/admin authorization.
+   - Added `status` and `postedBy` query parameters to `getAllInternships` and `getAllJobs` so employers can manage active/closed listings.
+   - Added `update` and `delete` methods to `internshipService` and `jobService` in `src/services/api.ts`.
+2. **Application Lifecycle**:
+   - Verified state machine: `applied` -> `in_review` -> `interview_scheduled` -> `offered` / `rejected`.
+   - Verified that scheduling an interview dynamically provisions a WebRTC virtual room and creates a scheduled `Meeting` entity in MongoDB.
+   - Verified real-time Socket.IO dispatch (`notification:new`, `application:status_updated`) alongside persistent MongoDB notifications.
+3. **Diagnostic Assessment + Groq AI + roadmap.sh**:
+   - Verified 5-failure threshold triggers adaptive study timeline with honest score and direct roadmap.sh references.
+   - Verified UGC degree auto-detection and 500ms debounce gap between keystrokes (`useUGCDegreeSearch.ts`).
+4. **Digital Portfolio (OWASP A01 / IDOR Fix)**:
+   - Fixed critical data leak in `getPortfolioData` (`server/src/controllers/skillController.ts:150`): previously executed `Portfolio.findOne({})` when a new student had no portfolio, returning a random student's credentials! Now returns `{ certificates: [], projects: [] }` scoped strictly to target user.
+5. **MoU Proposal Lifecycle**:
+   - Expanded `reviewProposal` (`server/src/controllers/mouController.ts`) permissions to allow target institution academic representatives to review and approve MoUs intended for their university, in addition to national platform administrators.
+6. **Notifications (OWASP A01 & Mass Data Loss Fix)**:
+   - Critical remediation in `server/src/controllers/notificationController.ts`: `clearAllNotifications` and `markAllAsRead` constructed `const query = userId ? { userId } : {}`. If `userId` was omitted, it executed `deleteMany({})` and `updateMany({})` across the ENTIRE database, destroying all notifications for every user!
+   - Enforced strict token authentication via `authenticate` middleware in `server/src/routes/notificationRoutes.ts`.
+   - Scoped all queries and deletion operations strictly to `req.user._id`.
+7. **Verification**:
+   - Frontend `tsc --noEmit`: 0 errors.
+   - Server `tsc`: 0 errors.

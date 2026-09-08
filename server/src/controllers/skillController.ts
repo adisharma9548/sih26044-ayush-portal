@@ -140,16 +140,20 @@ export const submitAssessment = async (req: Request, res: Response) => {
 
 export const getPortfolioData = async (req: Request, res: Response) => {
   try {
+    const requestingUser = (req as any).user;
     const { userId } = req.query;
-    let portfolio;
+    const targetUserId = userId?.toString() || requestingUser?._id?.toString();
 
-    if (userId) {
-      portfolio = await Portfolio.findOne({ userId: userId.toString() });
+    if (!targetUserId) {
+      return res.json({
+        data: {
+          certificates: [],
+          projects: [],
+        },
+      });
     }
 
-    if (!portfolio) {
-      portfolio = await Portfolio.findOne({});
-    }
+    const portfolio = await Portfolio.findOne({ userId: targetUserId });
 
     res.json({
       data: {

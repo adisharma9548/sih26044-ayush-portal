@@ -88,25 +88,31 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
       return res.json({ data: [...adminNotifs, ...storedNotifs] });
     }
 
-    const { userId } = req.query;
-    const query: any = {};
-    if (user) {
-      query.userId = user._id.toString();
-    } else if (userId) {
-      query.userId = userId.toString();
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     }
-    const notifs = await Notification.find(query).sort({ createdAt: -1 }).lean();
+
+    const notifs = await Notification.find({ userId: user._id.toString() }).sort({ createdAt: -1 }).lean();
     res.json({ data: notifs });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }
 };
 
-export const markAsRead = async (req: Request, res: Response) => {
+export const markAsRead = async (req: AuthRequest, res: Response) => {
   try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
     const { id } = req.params;
     if (mongoose.isValidObjectId(id)) {
-      await Notification.findByIdAndUpdate(id, { read: true });
+      const query: any = { _id: id };
+      if (user.role !== 'admin') {
+        query.userId = user._id.toString();
+      }
+      await Notification.findOneAndUpdate(query, { read: true });
     }
     res.json({ data: true });
   } catch (err: any) {
@@ -114,22 +120,28 @@ export const markAsRead = async (req: Request, res: Response) => {
   }
 };
 
-export const markAllAsRead = async (req: Request, res: Response) => {
+export const markAllAsRead = async (req: AuthRequest, res: Response) => {
   try {
-    const { userId } = req.body;
-    const query = userId ? { userId } : {};
-    await Notification.updateMany(query, { read: true });
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    await Notification.updateMany({ userId: user._id.toString() }, { read: true });
     res.json({ data: true });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }
 };
 
-export const clearAllNotifications = async (req: Request, res: Response) => {
+export const clearAllNotifications = async (req: AuthRequest, res: Response) => {
   try {
-    const { userId } = req.body;
-    const query = userId ? { userId } : {};
-    await Notification.deleteMany(query);
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    await Notification.deleteMany({ userId: user._id.toString() });
     res.json({ data: true });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });

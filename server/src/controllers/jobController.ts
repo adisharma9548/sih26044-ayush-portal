@@ -9,8 +9,18 @@ import { calculateCandidateOpportunityMatch } from '../services/matchingService'
 
 export const getAllJobs = async (req: Request, res: Response) => {
   try {
-    const { domain, search } = req.query;
-    const query: any = { type: 'job', status: 'active' };
+    const { domain, search, status, postedBy } = req.query;
+    const query: any = { type: 'job' };
+
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = 'active';
+    }
+
+    if (postedBy) {
+      query.postedBy = postedBy;
+    }
 
     if (domain && domain !== 'All') {
       query.ayushDomain = domain;
@@ -174,6 +184,72 @@ export const applyJob = async (req: Request, res: Response) => {
     };
 
     res.status(201).json({ data: formattedApp });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+export const updateJob = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Job not found' } });
+    }
+
+    const opportunity = await Opportunity.findOne({ _id: id, type: 'job' });
+    if (!opportunity) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Job not found' } });
+    }
+
+    const requestingUser = (req as any).user;
+    if (requestingUser.role !== 'admin' && opportunity.postedBy?.toString() !== requestingUser._id.toString()) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Unauthorized to modify this job' } });
+    }
+
+    const allowedUpdates = [
+      'title', 'company', 'location', 'isRemote', 'salary', 'experienceLevel',
+      'skillsRequired', 'description', 'responsibilities', 'requirements',
+      'deadline', 'status', 'ayushDomain', 'openings'
+    ];
+
+    allowedUpdates.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        (opportunity as any)[field] = req.body[field];
+      }
+    });
+
+    await opportunity.save();
+
+    res.json({
+      data: {
+        ...opportunity.toObject(),
+        id: opportunity._id.toString(),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+export const deleteJob = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Job not found' } });
+    }
+
+    const opportunity = await Opportunity.findOne({ _id: id, type: 'job' });
+    if (!opportunity) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Job not found' } });
+    }
+
+    const requestingUser = (req as any).user;
+    if (requestingUser.role !== 'admin' && opportunity.postedBy?.toString() !== requestingUser._id.toString()) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Unauthorized to delete this job' } });
+    }
+
+    await Opportunity.findByIdAndDelete(id);
+    res.json({ data: { message: 'Job deleted successfully' } });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }
