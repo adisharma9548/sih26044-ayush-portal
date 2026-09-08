@@ -278,14 +278,22 @@ export const skillService = {
     return apiRequest(`/skills/profile${qs}`);
   },
 
-  getQuestions: async (): Promise<{ data: AssessmentQuestion[] }> => {
-    return apiRequest('/skills/assessment/questions');
+  getQuestions: async (degree?: string, specialization?: string): Promise<{ data: AssessmentQuestion[] }> => {
+    const params = new URLSearchParams();
+    if (degree) params.append('degree', degree);
+    if (specialization) params.append('specialization', specialization);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest(`/skills/assessment/questions${qs}`);
   },
 
-  submitAssessment: async (answers: Record<number, number>): Promise<{ data: { score: number; profile: SkillProfile } }> => {
+  submitAssessment: async (
+    answers: Record<number, number>,
+    proctoring?: any,
+    questions?: any[]
+  ): Promise<{ data: { score: number; profile: SkillProfile } }> => {
     return apiRequest('/skills/assessment/submit', {
       method: 'POST',
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({ answers, proctoring, questions }),
     });
   },
 
@@ -433,10 +441,20 @@ export const adminService = {
 };
 
 export const aiServiceClient = {
-  getDiagnostic: async (degree?: string, domain?: string, targetDomain?: string): Promise<{ data: { degree: string; domain?: string; targetDomain?: string; questions: any[] } }> => {
+  getSpecializations: async (degree: string): Promise<{ data: { degree: string; academicField: string; specializations: string[]; suggestedCareers: string[]; recommendedTopics: string[] } }> => {
+    return apiRequest(`/ai/specializations?degree=${encodeURIComponent(degree)}`);
+  },
+
+  getDiagnostic: async (
+    degree?: string,
+    domain?: string,
+    targetDomain?: string,
+    specialization?: string
+  ): Promise<{ data: { degree: string; domain?: string; targetDomain?: string; specialization?: string; questions: any[] } }> => {
     const params = new URLSearchParams();
     if (degree) params.append('degree', degree);
     if (domain) params.append('domain', domain);
+    if (specialization) params.append('specialization', specialization);
     if (targetDomain) params.append('targetDomain', targetDomain);
     const queryString = params.toString() ? `?${params.toString()}` : '';
     return apiRequest(`/ai/diagnostic${queryString}`);
@@ -462,10 +480,10 @@ export const aiServiceClient = {
     });
   },
 
-  submitDiagnostic: async (answers: any[], degree?: string): Promise<{ data: { evaluation: any; profile: any } }> => {
+  submitDiagnostic: async (answers: any[], degree?: string, proctoring?: any): Promise<{ data: { evaluation: any; profile: any } }> => {
     return apiRequest('/ai/diagnostic/submit', {
       method: 'POST',
-      body: JSON.stringify({ answers, degree }),
+      body: JSON.stringify({ answers, degree, proctoring }),
     });
   },
 };

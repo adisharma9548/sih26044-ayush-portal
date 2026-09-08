@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { RoadmapGuidance } from '../../types';
+import { useExamProctoring, ProctoringViolation } from '../../hooks/useExamProctoring';
+import { ProctoringHUD } from '../proctoring/ProctoringHUD';
+import { ViolationWarningModal } from '../proctoring/ViolationWarningModal';
 import {
   Sparkles,
   Brain,
@@ -67,29 +70,6 @@ interface Props {
   requiredForApplication?: boolean;
 }
 
-const DOMAIN_OPTIONS = [
-  'Computer Science & Engineering',
-  'Artificial Intelligence & Machine Learning',
-  'Data Science & Analytics',
-  'Full-Stack Web & Cloud Systems',
-  'Electronics, Communication & IoT',
-  'Ayurveda & Herbal Pharmacognosy',
-  'Ayur-Informatics & Healthcare Tech',
-  'Biotechnology & Bio-Engineering',
-  'Mechanical & Smart Automation',
-];
-
-const TARGET_CAREER_OPTIONS = [
-  'Full-Stack Software Engineer',
-  'AI / ML Solutions Engineer',
-  'Cloud & DevOps Architect',
-  'Data Engineer / Data Scientist',
-  'Embedded Systems & IoT Specialist',
-  'Ayurvedic Pharmacologist & R&D Scientist',
-  'Healthcare Informatics Specialist',
-  'Cybersecurity & Systems Analyst',
-];
-
 export const AiOnboardingModal: React.FC<Props> = ({
   isOpen,
   onComplete,
@@ -101,9 +81,13 @@ export const AiOnboardingModal: React.FC<Props> = ({
   // Phases: 'domain_discovery' | 'test' | 'study_timeline' | 'results'
   const [phase, setPhase] = useState<'domain_discovery' | 'test' | 'study_timeline' | 'results'>('domain_discovery');
 
-  // Domain selections
-  const [currentDomain, setCurrentDomain] = useState<string>(user?.currentDomain || DOMAIN_OPTIONS[0]);
-  const [targetDomain, setTargetDomain] = useState<string>(user?.targetDomain || TARGET_CAREER_OPTIONS[0]);
+  // Degree & Domain selections (fetched purely via AI)
+  const [selectedDegree, setSelectedDegree] = useState<string>(user?.degree || '');
+  const [currentDomain, setCurrentDomain] = useState<string>(user?.specialization || user?.currentDomain || '');
+  const [targetDomain, setTargetDomain] = useState<string>(user?.targetDomain || '');
+  const [dynamicDomains, setDynamicDomains] = useState<string[]>([]);
+  const [dynamicCareers, setDynamicCareers] = useState<string[]>([]);
+  const [loadingAiDomains, setLoadingAiDomains] = useState(false);
 
   // Assessment states
   const [loading, setLoading] = useState(false);
@@ -128,9 +112,82 @@ export const AiOnboardingModal: React.FC<Props> = ({
 
   const isNewUser = (user?.loginCount ?? 1) <= 1;
 
+  // Auto-submit on max proctoring violations reached
+  const handleAutoSubmitOnBreach = async (logs: ProctoringViolation[]) => {
+    setSubmitting(true);
+    try {
+      const res = await api.ai.submitDiagnostic(recordedAnswers, selectedDegree || user?.degree, {
+        violationsCount: logs.length,
+        violationsLog: logs,
+        terminatedEarly: true,
+      });
+      setEvaluation(res.data.evaluation);
+      setPhase('results');
+    } catch (err: any) {
+      setError('Diagnostic assessment automatically submitted due to integrity violations.');
+      setPhase('results');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Proctoring lockdown during active test
+  const {
+    strikes,
+    maxStrikes,
+    violationsLog,
+    activeWarning,
+    requestFullscreen,
+    recordViolation,
+    clearActiveWarning,
+  } = useExamProctoring({
+    active: phase === 'test' && isOpen,
+    maxStrikes: 3,
+    onMaxStrikesReached: (logs) => {
+      // Auto-submit immediately on 3 strikes
+      handleAutoSubmitOnBreach(logs);
+    },
+  });
+
+  // Dynamic AI Specialization & Career Track Discovery
+  useEffect(() => {
+    if (!isOpen) return;
+    const targetDeg = (selectedDegree || user?.degree || 'Higher Education').trim();
+    let isMounted = true;
+    setLoadingAiDomains(true);
+
+    api.ai
+      .getSpecializations(targetDeg)
+      .then((res) => {
+        if (!isMounted) return;
+        const specs = res.data?.specializations || [];
+        const careers = res.data?.suggestedCareers || [];
+        setDynamicDomains(specs);
+        setDynamicCareers(careers);
+
+        if (specs.length > 0 && !currentDomain) {
+          setCurrentDomain(specs[0]);
+        }
+        if (careers.length > 0 && !targetDomain) {
+          setTargetDomain(careers[0]);
+        }
+      })
+      .catch((err) => {
+        console.warn('Unable to load AI specializations:', err.message);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingAiDomains(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, selectedDegree, user]);
+
   useEffect(() => {
     if (isOpen) {
-      if (user?.currentDomain) setCurrentDomain(user.currentDomain);
+      if (user?.degree) setSelectedDegree(user.degree);
+      if (user?.specialization || user?.currentDomain) setCurrentDomain(user.specialization || user.currentDomain || '');
       if (user?.targetDomain) setTargetDomain(user.targetDomain);
       setPhase('domain_discovery');
       setCurrentQuestionIndex(0);
@@ -149,13 +206,15 @@ export const AiOnboardingModal: React.FC<Props> = ({
     setError(null);
     try {
       if (user?.id) {
-        api.users.updateProfile(user.id, { currentDomain, targetDomain }).catch(() => {});
+        api.users.updateProfile(user.id, { degree: selectedDegree, currentDomain, targetDomain }).catch(() => {});
       }
 
-      const res = await api.ai.getDiagnostic(user?.degree, currentDomain, targetDomain);
+      await requestFullscreen();
+
+      const res = await api.ai.getDiagnostic(selectedDegree, currentDomain, targetDomain, currentDomain);
       const fetchedQuestions: Question[] = res.data.questions || [];
       if (fetchedQuestions.length === 0) {
-        throw new Error('No diagnostic questions available. Please try again.');
+        throw new Error('No diagnostic questions available from AI. Please try again.');
       }
       setQuestions(fetchedQuestions);
       setCurrentQuestionIndex(0);
@@ -255,7 +314,11 @@ export const AiOnboardingModal: React.FC<Props> = ({
     } else {
       setSubmitting(true);
       try {
-        const res = await api.ai.submitDiagnostic(recordedAnswers, user?.degree);
+        const res = await api.ai.submitDiagnostic(recordedAnswers, selectedDegree || user?.degree, {
+          violationsCount: violationsLog.length,
+          violationsLog,
+          terminatedEarly: false,
+        });
         setEvaluation(res.data.evaluation);
         setPhase('results');
       } catch (err: any) {
@@ -284,6 +347,27 @@ export const AiOnboardingModal: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm overflow-y-auto">
+      {/* Proctoring HUD and Warning Modal during active test */}
+      {phase === 'test' && (
+        <ProctoringHUD
+          isActive={phase === 'test' && isOpen}
+          strikes={strikes}
+          maxStrikes={maxStrikes}
+          onViolation={recordViolation}
+        />
+      )}
+
+      <ViolationWarningModal
+        warning={activeWarning}
+        strikes={strikes}
+        maxStrikes={maxStrikes}
+        onResume={async () => {
+          clearActiveWarning();
+          await requestFullscreen();
+        }}
+        isTerminated={violationsLog.length >= maxStrikes}
+      />
+
       <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 my-8 relative animate-in fade-in zoom-in-95 duration-200">
         {!requiredForApplication && (
           <button
@@ -326,21 +410,62 @@ export const AiOnboardingModal: React.FC<Props> = ({
 
             <div className="space-y-4 pt-2">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4 text-emerald-600" />
-                  <span>Current Academic Domain / Specialization</span>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-emerald-600" />
+                    <span>Degree / Academic Program</span>
+                  </span>
+                  {loadingAiDomains && (
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Loading AI tracks...
+                    </span>
+                  )}
                 </label>
-                <select
-                  value={currentDomain}
-                  onChange={(e) => setCurrentDomain(e.target.value)}
+                <input
+                  type="text"
+                  value={selectedDegree}
+                  onChange={(e) => setSelectedDegree(e.target.value)}
+                  placeholder="e.g. B.Tech Computer Science, LL.B, BAMS, MBBS, B.Com, MBA..."
                   className="w-full p-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-xs"
-                >
-                  {DOMAIN_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  <span>Academic Specialization / Domain</span>
+                </label>
+                {dynamicDomains.length > 0 ? (
+                  <div className="space-y-2">
+                    <select
+                      value={currentDomain}
+                      onChange={(e) => setCurrentDomain(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-xs"
+                    >
+                      {dynamicDomains.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={currentDomain}
+                      onChange={(e) => setCurrentDomain(e.target.value)}
+                      placeholder="Or specify custom specialization..."
+                      className="w-full p-2 text-xs rounded-lg border border-slate-200 text-slate-700 focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={currentDomain}
+                    onChange={(e) => setCurrentDomain(e.target.value)}
+                    placeholder="Enter your field of study or major (e.g. Artificial Intelligence, Constitutional Law, Dravyaguna)..."
+                    className="w-full p-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-xs"
+                  />
+                )}
               </div>
 
               <div>
@@ -348,17 +473,36 @@ export const AiOnboardingModal: React.FC<Props> = ({
                   <Target className="w-4 h-4 text-emerald-600" />
                   <span>Target Industry Career Aspiration</span>
                 </label>
-                <select
-                  value={targetDomain}
-                  onChange={(e) => setTargetDomain(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-xs"
-                >
-                  {TARGET_CAREER_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
+                {dynamicCareers.length > 0 ? (
+                  <div className="space-y-2">
+                    <select
+                      value={targetDomain}
+                      onChange={(e) => setTargetDomain(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-xs"
+                    >
+                      {dynamicCareers.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={targetDomain}
+                      onChange={(e) => setTargetDomain(e.target.value)}
+                      placeholder="Or specify custom career role..."
+                      className="w-full p-2 text-xs rounded-lg border border-slate-200 text-slate-700 focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={targetDomain}
+                    onChange={(e) => setTargetDomain(e.target.value)}
+                    placeholder="e.g. Cloud Architect, Ayurvedic Clinical Consultant, Corporate Litigator..."
+                    className="w-full p-3 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-xs"
+                  />
+                )}
               </div>
             </div>
 

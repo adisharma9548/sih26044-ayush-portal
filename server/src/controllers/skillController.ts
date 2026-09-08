@@ -3,6 +3,7 @@ import { SkillProfile } from '../models/SkillProfile';
 import { Question, AssessmentAttempt } from '../models/Assessment';
 import { Portfolio } from '../models/Portfolio';
 import { analyzeSkillGaps } from '../services/skillGapService';
+import { generateDiagnosticQuestions } from '../services/aiService';
 import { emitToUser } from '../services/socketService';
 
 import { AuthRequest } from '../middleware/auth';
@@ -37,20 +38,27 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getQuestions = async (_req: Request, res: Response) => {
+export const getQuestions = async (req: Request, res: Response) => {
   try {
-    const questions = await Question.find({}).sort({ numericId: 1 }).lean();
-    // Transform to match frontend AssessmentQuestion schema
-    const formatted = questions.map((q) => ({
-      id: q.numericId,
+    const degree = (req.query.degree as string) || (req as any).user?.degree || '';
+    const specialization =
+      (req.query.specialization as string) ||
+      (req.query.category as string) ||
+      (req as any).user?.specialization ||
+      (req as any).user?.currentDomain ||
+      '';
+
+    const aiQuestions = await generateDiagnosticQuestions(degree, specialization, undefined, specialization);
+    const formatted = aiQuestions.map((q) => ({
+      id: q.id,
       category: q.category,
       question: q.question,
       options: q.options,
       correctIndex: q.correctIndex,
       explanation: q.explanation,
-      weight: q.weight,
+      weight: Math.round(100 / aiQuestions.length),
     }));
-    res.json({ data: formatted });
+    return res.json({ data: formatted });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }
@@ -58,26 +66,50 @@ export const getQuestions = async (_req: Request, res: Response) => {
 
 export const submitAssessment = async (req: Request, res: Response) => {
   try {
-    const { answers, userId } = req.body;
-    const questions = await Question.find({});
+    const { answers, userId, proctoring, questions: clientQuestions } = req.body;
 
     let correctCount = 0;
-    questions.forEach((q) => {
-      const studentAns = answers ? answers[q.numericId] : undefined;
-      if (studentAns !== undefined && studentAns === q.correctIndex) {
-        correctCount++;
-      }
-    });
+    let totalQuestionsCount = 0;
 
-    const calculatedScore = Math.min(100, Math.max(0, Math.round((correctCount / Math.max(1, questions.length)) * 100)));
+    if (Array.isArray(clientQuestions) && clientQuestions.length > 0) {
+      totalQuestionsCount = clientQuestions.length;
+      clientQuestions.forEach((q: any) => {
+        const studentAns = answers ? answers[q.id] : undefined;
+        if (studentAns !== undefined && studentAns === q.correctIndex) {
+          correctCount++;
+        }
+      });
+    } else {
+      const questions = await Question.find({});
+      totalQuestionsCount = Math.max(1, questions.length);
+      questions.forEach((q) => {
+        const studentAns = answers ? answers[q.numericId] : undefined;
+        if (studentAns !== undefined && studentAns === q.correctIndex) {
+          correctCount++;
+        }
+      });
+    }
+
+    const calculatedScore = Math.min(
+      100,
+      Math.max(0, Math.round((correctCount / Math.max(1, totalQuestionsCount)) * 100))
+    );
     const targetUserId = userId || (req as any).user?._id?.toString() || '';
 
-    // Record assessment attempt
+    // Record assessment attempt with proctoring audit metadata
     await AssessmentAttempt.create({
       userId: targetUserId,
       score: calculatedScore,
       answers,
       evaluatedAt: new Date(),
+      proctoring: proctoring
+        ? {
+            violationsCount: proctoring.violationsCount || 0,
+            violationsLog: proctoring.violationsLog || [],
+            terminatedEarly: !!proctoring.terminatedEarly,
+            integrityScore: typeof proctoring.integrityScore === 'number' ? proctoring.integrityScore : 100,
+          }
+        : undefined,
     });
 
     const totalAttempts = await AssessmentAttempt.countDocuments();

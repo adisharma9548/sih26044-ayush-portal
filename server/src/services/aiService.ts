@@ -96,176 +96,108 @@ async function callGroq(prompt: string, jsonMode: boolean = true): Promise<any> 
   throw lastError;
 }
 
-// Curated fallbacks for offline or unauthenticated situations
-const FALLBACK_QUESTIONS: Record<string, DiagnosticQuestion[]> = {
-  technical: [
-    {
-      id: 1,
-      category: 'Data Structures & Algorithms',
-      difficulty: 'Basic',
-      question: 'What is the time complexity of searching for an element in an unsorted array of size N?',
-      options: ['O(1)', 'O(log N)', 'O(N)', 'O(N^2)'],
-      correctIndex: 2,
-      explanation: 'In an unsorted array, linear search checks each element one by one, resulting in O(N) time complexity.',
-    },
-    {
-      id: 2,
-      category: 'Full-Stack Architecture',
-      difficulty: 'Basic',
-      question: 'In modern RESTful APIs, which HTTP method should be used to fetch or retrieve a resource without side effects?',
-      options: ['GET', 'POST', 'PUT', 'DELETE'],
-      correctIndex: 0,
-      explanation: 'GET is designed specifically for safe and idempotent retrieval of server resources.',
-    },
-    {
-      id: 3,
-      category: 'Data Structures & Algorithms',
-      difficulty: 'Intermediate',
-      question: 'What is the average time complexity of searching in a balanced Binary Search Tree (AVL / Red-Black Tree)?',
-      options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
-      correctIndex: 1,
-      explanation: 'Balanced BSTs maintain height proportional to log(n), ensuring O(log n) search, insertion, and deletion.',
-    },
-    {
-      id: 4,
-      category: 'Database Systems',
-      difficulty: 'Intermediate',
-      question: 'In relational databases, which isolation level prevents Dirty Reads, Non-repeatable Reads, and Phantom Reads?',
-      options: ['Read Committed', 'Repeatable Read', 'Serializable', 'Read Uncommitted'],
-      correctIndex: 2,
-      explanation: 'Serializable is the strictest ACID isolation level and eliminates phantom reads and non-repeatable reads.',
-    },
-    {
-      id: 5,
-      category: 'Cloud & DevOps',
-      difficulty: 'Intermediate',
-      question: 'What is the primary architectural purpose of container orchestration tools like Kubernetes?',
-      options: [
-        'To compile TypeScript code into WebAssembly',
-        'To automate container deployment, scaling, healing, and traffic routing',
-        'To provide local disk encryption',
-        'To replace standard TCP/IP networking',
-      ],
-      correctIndex: 1,
-      explanation: 'Kubernetes automates scaling, rolling deployments, load balancing, and self-healing across container clusters.',
-    },
-    {
-      id: 6,
-      category: 'System Design & Architecture',
-      difficulty: 'Advanced',
-      question: 'In distributed systems, according to the CAP theorem, what must a network partition force a system to choose between?',
-      options: ['Speed vs Security', 'Consistency vs Availability', 'Bandwidth vs Latency', 'Read throughput vs Write throughput'],
-      correctIndex: 1,
-      explanation: 'During a network partition (P), a distributed system must sacrifice either Consistency (C) or Availability (A).',
-    },
-    {
-      id: 7,
-      category: 'Machine Learning & Analytics',
-      difficulty: 'Advanced',
-      question: 'What machine learning phenomenon occurs when a model performs exceptionally on training data but fails to generalize to unseen test data?',
-      options: ['Underfitting', 'Overfitting', 'Data leakage', 'Gradient clipping'],
-      correctIndex: 1,
-      explanation: 'Overfitting occurs when high-variance models memorize noise and training patterns instead of generalizable features.',
-    },
-  ],
-  ayush: [
-    {
-      id: 1,
-      category: 'Dravyaguna Vigyana',
-      difficulty: 'Basic',
-      question: 'Which of the following classical herbs contains withanolides and withaferin A as its primary therapeutic phytochemicals?',
-      options: ['Tinospora cordifolia (Guduchi)', 'Withania somnifera (Ashwagandha)', 'Bacopa monnieri (Brahmi)', 'Commiphora mukul (Guggulu)'],
-      correctIndex: 1,
-      explanation: 'Withania somnifera (Ashwagandha) is rich in steroidal lactones known as withanolides.',
-    },
-    {
-      id: 2,
-      category: 'Formulation & Rasashastra',
-      difficulty: 'Basic',
-      question: 'In classical Rasashastra, what is the primary pharmaceutical objective of the Shodhana process?',
-      options: ['To add artificial flavor', 'To purify raw mineral/metal toxicities and enhance bio-absorbability', 'To reduce shelf life', 'To increase total mass'],
-      correctIndex: 1,
-      explanation: 'Shodhana eliminates toxic impurities and prepares metals/minerals for Marana (calcination into micro-nano Bhasmas).',
-    },
-    {
-      id: 3,
-      category: 'Analytical QC & Pharmacognosy',
-      difficulty: 'Intermediate',
-      question: 'Which modern analytical chromatographic technique is standard for establishing fingerprint profiles of raw polyherbal extracts against API standards?',
-      options: ['HPTLC (High-Performance Thin-Layer Chromatography)', 'Simple Litmus Paper test', 'Centrifugal separator', 'Gel electrophoresis'],
-      correctIndex: 0,
-      explanation: 'HPTLC provides reproducible retention factors (Rf) and densitometric peaks for botanical identification and quality assurance.',
-    },
-    {
-      id: 4,
-      category: 'Clinical Research & Regulations',
-      difficulty: 'Intermediate',
-      question: 'Under Ministry of Ayush and CDSCO regulations, which council is the apex research body for formulating preclinical and clinical standards in Ayurveda?',
-      options: ['ICMR', 'CCRAS (Central Council for Research in Ayurvedic Sciences)', 'CSIR', 'PCI'],
-      correctIndex: 1,
-      explanation: 'CCRAS is the apex scientific organization under the Ministry of Ayush for Ayurvedic medical research.',
-    },
-    {
-      id: 5,
-      category: 'Good Manufacturing Practice',
-      difficulty: 'Advanced',
-      question: 'In Ayush-GMP (Schedule T of Drugs and Cosmetics Rules), what is the core regulatory requirement regarding heavy metal limits in finished polyherbal products?',
-      options: ['No testing is required', 'Testing for Lead, Cadmium, Arsenic, and Mercury below defined permissible limits (PPM)', 'Only color inspection', 'Mandatory addition of synthetic preservatives'],
-      correctIndex: 1,
-      explanation: 'Schedule T mandates atomic absorption or ICP-MS testing for Pb, Cd, As, and Hg to safeguard patient safety.',
-    },
-  ],
+export interface DynamicSpecializationResponse {
+  degree: string;
+  academicField: string;
+  specializations: string[];
+  suggestedCareers: string[];
+  recommendedTopics: string[];
+}
+
+export const getDynamicSpecializations = async (degree: string): Promise<DynamicSpecializationResponse> => {
+  const cleanDeg = (degree || '').trim();
+  if (!cleanDeg) {
+    throw new Error('Degree name is required to retrieve AI-generated specializations.');
+  }
+
+  const prompt = `You are a higher education curriculum and accreditation director under UGC, AICTE, Ministry of Ayush, BCI, and MCI.
+For the academic degree "${cleanDeg}", dynamically generate verified specializations/academic majors, associated career paths, and core curriculum topics.
+
+Rules:
+1. Dynamically tailor specializations based on the exact degree without hardcoding:
+   - If Law (e.g. LL.B, B.A. LL.B, LL.M): include "Constitutional Law", "Corporate & Commercial Law", "Criminal Jurisprudence & Litigation", "Cyber Law & Intellectual Property Rights", "Taxation & Financial Law", "International Law & Arbitration".
+   - If Ayush (e.g. BAMS, MD Ayurveda, BHMS): include "Dravyaguna Vigyana", "Rasashastra & Bhaishajya Kalpana", "Panchakarma Therapy", "Kayachikitsa", etc.
+   - If Engineering / Tech: include modern engineering specializations.
+   - For all other degrees: generate authentic recognized specializations.
+2. Return strictly JSON:
+{
+  "degree": "${cleanDeg}",
+  "academicField": "Broad academic discipline",
+  "specializations": ["Specialization 1", "Specialization 2", "Specialization 3", "Specialization 4", "Specialization 5", "Specialization 6"],
+  "suggestedCareers": ["Career 1", "Career 2", "Career 3", "Career 4", "Career 5"],
+  "recommendedTopics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"]
+}`;
+
+  const aiResult = await callGroq(prompt);
+  if (!aiResult || !Array.isArray(aiResult.specializations) || aiResult.specializations.length === 0) {
+    throw new Error(`AI was unable to generate specializations for degree "${cleanDeg}".`);
+  }
+
+  return {
+    degree: cleanDeg,
+    academicField: aiResult.academicField || 'Higher Education Studies',
+    specializations: aiResult.specializations,
+    suggestedCareers: Array.isArray(aiResult.suggestedCareers) ? aiResult.suggestedCareers : [],
+    recommendedTopics: Array.isArray(aiResult.recommendedTopics) ? aiResult.recommendedTopics : [],
+  };
 };
 
 export const generateDiagnosticQuestions = async (
   degree: string,
   domain?: string,
-  targetDomain?: string
+  targetDomain?: string,
+  specialization?: string
 ): Promise<DiagnosticQuestion[]> => {
-  const combinedContext = `${degree || 'Technical Degree'} - Domain: ${domain || 'Computer Science & Engineering'}, Target Career: ${targetDomain || 'Industry Software Engineering'}`;
+  const activeDegree = (degree || '').trim();
+  const activeSpecialization = (specialization || domain || '').trim();
+  const activeTarget = (targetDomain || '').trim();
 
-  const prompt = `Generate an adaptive 7-question technical skill diagnostic multiple-choice assessment for a university student.
-Context: ${combinedContext}.
-The questions must progress through three clear difficulty tiers:
-- Questions 1 & 2: Basic / Foundational level
-- Questions 3, 4 & 5: Intermediate level
-- Questions 6 & 7: Advanced / Industry-grade level
+  if (!activeDegree && !activeSpecialization) {
+    throw new Error('Degree or specialization is required to generate AI diagnostic questions.');
+  }
+
+  const combinedContext = `Degree: "${activeDegree || 'University Degree'}", Specialization/Discipline: "${activeSpecialization || 'Core Curriculum'}", Target Career Track: "${activeTarget || 'Industry Specialist'}"`;
+
+  const prompt = `You are a university academic examination director and subject-matter expert.
+Generate an adaptive 7-question multiple-choice technical/academic assessment tailored strictly to:
+${combinedContext}
+
+Strict Subject Alignment Rules:
+1. Questions MUST directly reflect the exact degree and specialization requested.
+   - For example:
+     - If the degree or specialization is Law / Constitutional Law, questions MUST strictly cover constitutional law, Article 21, Fundamental Rights, judicial review, Basic Structure Doctrine, writ jurisdiction, and landmark Supreme Court cases.
+     - If AYUSH / BAMS, questions MUST cover Dravyaguna, Schedule T GMP, Clinical Rog Nidan, or classical pharmacology.
+     - If Engineering / Computer Science, questions MUST cover Algorithms, Distributed Systems, Databases, or Cloud.
+     - If Pharmacy, cover Pharmacokinetics, Drug Design, QC & Pharmacology.
+     - If Management / MBA, cover Strategic Analysis, Corporate Finance, and Operations.
+2. The questions must progress through three clear difficulty tiers:
+   - Questions 1 & 2: Basic / Foundational level
+   - Questions 3, 4 & 5: Intermediate level
+   - Questions 6 & 7: Advanced / Industry-grade level
 
 Return a JSON object with a key "questions" containing an array of 7 objects. Each object must have:
 - "id": number (1 to 7)
-- "category": string (e.g. Data Structures, Cloud, REST APIs, Databases, Bio-informatics, etc.)
-- "difficulty": string ("Basic", "Intermediate", or "Advanced")
+- "category": string (specific sub-topic within this specialization)
+- "difficulty": "Basic" | "Intermediate" | "Advanced"
 - "question": string (clear, academic, realistic problem-solving question)
 - "options": array of 4 distinct answer strings
 - "correctIndex": number (0 to 3)
 - "explanation": string (brief explanation of why this answer is correct)`;
 
-  try {
-    const result = await callGroq(prompt);
-    if (result && Array.isArray(result.questions) && result.questions.length >= 5) {
-      return result.questions.map((q: any, idx: number) => ({
-        id: idx + 1,
-        category: q.category || 'Core Engineering',
-        difficulty: (q.difficulty as any) || (idx < 2 ? 'Basic' : idx < 5 ? 'Intermediate' : 'Advanced'),
-        question: q.question,
-        options: q.options,
-        correctIndex: q.correctIndex,
-        explanation: q.explanation || '',
-      }));
-    }
-  } catch (err: any) {
-    console.warn('[AI Service Notice] Groq generation fallback used:', err.message);
+  const result = await callGroq(prompt);
+  if (!result || !Array.isArray(result.questions) || result.questions.length === 0) {
+    throw new Error(`AI was unable to generate assessment questions for ${activeDegree} - ${activeSpecialization}.`);
   }
 
-  const isTechnical =
-    degree.toLowerCase().includes('b.tech') ||
-    degree.toLowerCase().includes('btech') ||
-    degree.toLowerCase().includes('engineering') ||
-    degree.toLowerCase().includes('computer') ||
-    degree.toLowerCase().includes('it') ||
-    (domain && domain.toLowerCase().includes('computer'));
-
-  return isTechnical ? FALLBACK_QUESTIONS.technical : FALLBACK_QUESTIONS.ayush;
+  return result.questions.map((q: any, idx: number) => ({
+    id: idx + 1,
+    category: q.category || activeSpecialization || 'Core Discipline',
+    difficulty: (q.difficulty as any) || (idx < 2 ? 'Basic' : idx < 5 ? 'Intermediate' : 'Advanced'),
+    question: q.question,
+    options: q.options,
+    correctIndex: q.correctIndex,
+    explanation: q.explanation || '',
+  }));
 };
 
 export const evaluateDiagnosticAnswers = async (

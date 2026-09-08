@@ -1,30 +1,56 @@
 import { Response, Request } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import { generateDiagnosticQuestions, evaluateDiagnosticAnswers, generateStudyTimeline } from '../services/aiService';
+import {
+  generateDiagnosticQuestions,
+  evaluateDiagnosticAnswers,
+  generateStudyTimeline,
+  getDynamicSpecializations,
+} from '../services/aiService';
 import { searchRoadmapsForLaggingSkills } from '../services/roadmapService';
 import { SkillProfile } from '../models/SkillProfile';
+import { AssessmentAttempt } from '../models/Assessment';
 import { User } from '../models/User';
 import { recordAuditLog } from '../services/auditService';
+
+export const getSpecializations = async (req: AuthRequest, res: Response) => {
+  try {
+    const degree = (req.query.degree as string) || req.user?.degree || 'Higher Education';
+    const data = await getDynamicSpecializations(degree);
+    res.json({ data });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SPECIALIZATION_ERROR', message: err.message } });
+  }
+};
 
 export const getDiagnosticQuestions = async (req: AuthRequest, res: Response) => {
   try {
     const degree = (req.query.degree as string) || req.user?.degree || '';
-    const domain = (req.query.domain as string) || req.user?.currentDomain || req.query.specialization as string || '';
+    const specialization =
+      (req.query.specialization as string) ||
+      (req.query.domain as string) ||
+      req.user?.specialization ||
+      req.user?.currentDomain ||
+      '';
     const targetDomain = (req.query.targetDomain as string) || req.user?.targetDomain || '';
 
-    // If user is authenticated and provided domains, persist them
-    if (req.user && (domain || targetDomain)) {
-      if (domain) req.user.currentDomain = domain;
+    // If user is authenticated and provided fields, persist them
+    if (req.user && (degree || specialization || targetDomain)) {
+      if (degree) req.user.degree = degree;
+      if (specialization) {
+        req.user.specialization = specialization;
+        req.user.currentDomain = specialization;
+      }
       if (targetDomain) req.user.targetDomain = targetDomain;
       await req.user.save();
     }
 
-    const questions = await generateDiagnosticQuestions(degree, domain, targetDomain);
+    const questions = await generateDiagnosticQuestions(degree, specialization, targetDomain, specialization);
 
     res.json({
       data: {
         degree,
-        domain,
+        specialization,
+        domain: specialization,
         targetDomain,
         questions,
       },
@@ -99,7 +125,7 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
     }
 
-    const { answers, degree } = req.body;
+    const { answers, degree, proctoring } = req.body;
     const targetDegree = degree || req.user.degree || '';
 
     if (!answers || !Array.isArray(answers) || answers.length === 0) {
@@ -143,12 +169,39 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
 
     await profile.save();
 
+    // Persist assessment attempt with proctoring audit trail
+    const attempt = new AssessmentAttempt({
+      userId: req.user._id.toString(),
+      score: evaluation.overallScore,
+      answers: answers.reduce((acc: any, curr: any) => {
+        if (curr.questionId !== undefined) {
+          acc[curr.questionId.toString()] = curr.selectedIndex;
+        }
+        return acc;
+      }, {}),
+      evaluatedAt: new Date(),
+      proctoring: proctoring
+        ? {
+            violationsCount: proctoring.violationsCount || 0,
+            violationsLog: proctoring.violationsLog || [],
+            terminatedEarly: !!proctoring.terminatedEarly,
+            integrityScore: typeof proctoring.integrityScore === 'number' ? proctoring.integrityScore : 100,
+          }
+        : undefined,
+    });
+    await attempt.save();
+
     await recordAuditLog({
       req,
       action: 'AI_DIAGNOSTIC_EVALUATION',
       entity: 'SkillProfile',
       entityId: profile._id.toString(),
-      details: { degree: targetDegree, overallScore: evaluation.overallScore },
+      details: {
+        degree: targetDegree,
+        overallScore: evaluation.overallScore,
+        violationsCount: proctoring?.violationsCount || 0,
+        integrityScore: proctoring?.integrityScore ?? 100,
+      },
     });
 
     res.json({

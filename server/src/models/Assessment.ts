@@ -32,6 +32,12 @@ export interface IAssessmentAttempt extends Document {
   score: number;
   answers: Record<string, number>;
   evaluatedAt: Date;
+  proctoring?: {
+    violationsCount: number;
+    violationsLog: { type: string; timestamp: Date; details?: string }[];
+    terminatedEarly: boolean;
+    integrityScore: number;
+  };
 }
 
 const AssessmentAttemptSchema: Schema = new Schema(
@@ -40,6 +46,18 @@ const AssessmentAttemptSchema: Schema = new Schema(
     score: { type: Number, required: true, min: 0, max: 100 },
     answers: { type: Map, of: Number },
     evaluatedAt: { type: Date, default: Date.now },
+    proctoring: {
+      violationsCount: { type: Number, default: 0 },
+      violationsLog: [
+        {
+          type: { type: String },
+          timestamp: { type: Date, default: Date.now },
+          details: { type: String },
+        },
+      ],
+      terminatedEarly: { type: Boolean, default: false },
+      integrityScore: { type: Number, default: 100 },
+    },
   },
   { timestamps: true }
 );

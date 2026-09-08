@@ -1,9 +1,16 @@
 import { Router } from 'express';
-import { getDiagnosticQuestions, submitDiagnosticAnswers, getStudyTimeline, getRoadmapsForSkills } from '../controllers/aiController';
+import {
+  getDiagnosticQuestions,
+  submitDiagnosticAnswers,
+  getStudyTimeline,
+  getRoadmapsForSkills,
+  getSpecializations,
+} from '../controllers/aiController';
 import { authenticate, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
 
+router.get('/specializations', optionalAuthenticate, getSpecializations);
 router.get('/diagnostic', optionalAuthenticate, getDiagnosticQuestions);
 router.post('/diagnostic/submit', authenticate, submitDiagnosticAnswers);
 router.post('/study-timeline', optionalAuthenticate, getStudyTimeline);
