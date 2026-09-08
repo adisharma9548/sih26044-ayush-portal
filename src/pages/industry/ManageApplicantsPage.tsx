@@ -219,7 +219,9 @@ export const ManageApplicantsPage: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Skill Match Score:</span>
-                <span className="font-bold text-emerald-700">{selectedApp.skillMatchPercentage || 88}% Compatibility</span>
+                <span className="font-bold text-emerald-700">
+                  {selectedApp.skillMatchPercentage !== undefined ? `${selectedApp.skillMatchPercentage}% Compatibility` : 'Evaluation Pending'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Current Status:</span>
@@ -237,7 +239,7 @@ export const ManageApplicantsPage: React.FC = () => {
             {/* AI Resume & Skill Compatibility Engine */}
             <AiMatchMatrix
               opportunityTitle={selectedApp.opportunityTitle}
-              matchScore={selectedApp.skillMatchPercentage || 88}
+              matchScore={selectedApp.skillMatchPercentage ?? 0}
               coverNote={selectedApp.coverNote}
               isRecruiterView={true}
             />

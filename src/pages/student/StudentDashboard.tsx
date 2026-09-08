@@ -185,7 +185,7 @@ export const StudentDashboard: React.FC = () => {
         <StatCard
           title="Skill Benchmark Score"
           value={isAssessed ? `${skillProfile?.overallScore} / 100` : 'Pending'}
-          subtitle={isAssessed ? `Top ${100 - (skillProfile?.rankPercentile || 80)}% Nationally` : 'AI Diagnostic Required'}
+          subtitle={isAssessed ? `Top ${Math.max(1, 100 - (skillProfile?.rankPercentile ?? 0))}% Nationally` : 'AI Diagnostic Required'}
           icon={Award}
           color="emerald"
           trend={isAssessed ? { value: 'Verified by AI', isPositive: true } : undefined}
@@ -310,41 +310,63 @@ export const StudentDashboard: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {internships.map((int) => (
-                  <div
-                    key={int.id}
-                    className="p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:shadow-xs transition-all bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <img
-                        src={int.companyLogo || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=80&auto=format&fit=crop&q=80'}
-                        alt={int.company}
-                        className="w-10 h-10 rounded-xl object-cover border border-slate-100 shrink-0"
-                      />
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900">{int.title}</h4>
-                          <Badge variant="emerald" size="sm">90% Match</Badge>
-                        </div>
-                        <p className="text-xs font-medium text-slate-600 mt-0.5">{int.company}</p>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
-                          <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {int.location}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {int.duration}</span>
-                          <span className="font-bold text-emerald-700">{int.stipend}</span>
+                {internships.map((int) => {
+                  const reqSkills = int.skillsRequired || [];
+                  let matchScore: number | null = null;
+                  if (reqSkills.length > 0 && skillProfile?.skills && skillProfile.skills.length > 0) {
+                    const userSkills = skillProfile.skills.map((s: any) =>
+                      (typeof s === 'string' ? s : s.name || '').toLowerCase().trim()
+                    );
+                    const matched = reqSkills.filter((req: string) =>
+                      userSkills.some((u: string) => u.includes(req.toLowerCase().trim()) || req.toLowerCase().trim().includes(u))
+                    ).length;
+                    matchScore = Math.round((matched / reqSkills.length) * 100);
+                  }
+
+                  return (
+                    <div
+                      key={int.id}
+                      className="p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:shadow-xs transition-all bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <img
+                          src={int.companyLogo || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=80&auto=format&fit=crop&q=80'}
+                          alt={int.company}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-100 shrink-0"
+                        />
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-xs sm:text-sm font-bold text-slate-900">{int.title}</h4>
+                            {matchScore !== null ? (
+                              <Badge variant={matchScore >= 70 ? 'emerald' : matchScore >= 40 ? 'amber' : 'slate'} size="sm">
+                                {matchScore}% Match
+                              </Badge>
+                            ) : (
+                              <Badge variant="slate" size="sm">
+                                Verified Opening
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs font-medium text-slate-600 mt-0.5">{int.company}</p>
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
+                            <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {int.location}</span>
+                            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {int.duration}</span>
+                            <span className="font-bold text-emerald-700">{int.stipend}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 sm:self-center shrink-0">
-                      <Link
-                        to={`/student/internships/${int.id || (int as any)._id}`}
-                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs transition-colors"
-                      >
-                        Apply Now
-                      </Link>
+                      <div className="flex items-center gap-2 sm:self-center shrink-0">
+                        <Link
+                          to={`/student/internships/${int.id || (int as any)._id}`}
+                          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs transition-colors"
+                        >
+                          Apply Now
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

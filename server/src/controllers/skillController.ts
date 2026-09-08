@@ -69,7 +69,7 @@ export const submitAssessment = async (req: Request, res: Response) => {
       }
     });
 
-    const calculatedScore = Math.min(100, Math.max(50, Math.round((correctCount / Math.max(1, questions.length)) * 100)));
+    const calculatedScore = Math.min(100, Math.max(0, Math.round((correctCount / Math.max(1, questions.length)) * 100)));
     const targetUserId = userId || (req as any).user?._id?.toString() || '';
 
     // Record assessment attempt
@@ -80,26 +80,30 @@ export const submitAssessment = async (req: Request, res: Response) => {
       evaluatedAt: new Date(),
     });
 
+    const totalAttempts = await AssessmentAttempt.countDocuments();
+    const lowerScores = await AssessmentAttempt.countDocuments({ score: { $lt: calculatedScore } });
+    const rankPercentile = totalAttempts > 0 ? Math.round((lowerScores / totalAttempts) * 100) : calculatedScore;
+
     let profile = await SkillProfile.findOne({ userId: targetUserId });
     if (!profile) {
       profile = new SkillProfile({
         userId: targetUserId,
         overallScore: calculatedScore,
-        rankPercentile: Math.min(99, calculatedScore + 8),
+        rankPercentile,
         skills: [],
         gapAnalysis: [],
         lastAssessmentDate: new Date().toISOString().split('T')[0],
       });
     }
 
-    // Boost verified competencies upon taking test
+    // Update verified competencies upon taking test
     const updatedSkills = profile.skills.map((s) => {
       if (s.name.includes('GMP') || s.name.includes('GCP') || s.name.includes('Phytochemistry')) {
         return {
           name: s.name,
-          level: Math.min(95, s.level + 10),
+          level: Math.max(s.level, calculatedScore),
           industryBenchmark: s.industryBenchmark,
-          verified: true,
+          verified: calculatedScore >= 60,
           category: s.category,
         };
       }
@@ -108,7 +112,7 @@ export const submitAssessment = async (req: Request, res: Response) => {
 
     profile.skills = updatedSkills;
     profile.overallScore = calculatedScore;
-    profile.rankPercentile = Math.min(99, calculatedScore + 8);
+    profile.rankPercentile = rankPercentile;
     profile.lastAssessmentDate = new Date().toISOString().split('T')[0];
 
     // Recalibrate gap analysis

@@ -212,7 +212,7 @@ export const MyApplicationsPage: React.FC = () => {
                     <div className="mt-3 animate-in fade-in duration-150">
                       <AiMatchMatrix
                         opportunityTitle={app.opportunityTitle}
-                        matchScore={app.skillMatchPercentage || 85}
+                        matchScore={app.skillMatchPercentage ?? 0}
                         coverNote={app.coverNote}
                         isRecruiterView={false}
                       />

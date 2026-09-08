@@ -46,9 +46,10 @@ export const IndustryDashboard: React.FC = () => {
     fetchIndustryData();
   }, [user]);
 
-  const avgMatch = applicants.length > 0
-    ? `${Math.round(applicants.reduce((acc, a) => acc + (a.skillMatchPercentage || 80), 0) / applicants.length)}%`
-    : 'N/A';
+  const evaluatedApplicants = applicants.filter((a) => typeof a.skillMatchPercentage === 'number' && a.skillMatchPercentage > 0);
+  const avgMatch = evaluatedApplicants.length > 0
+    ? `${Math.round(evaluatedApplicants.reduce((acc, a) => acc + (a.skillMatchPercentage || 0), 0) / evaluatedApplicants.length)}%`
+    : 'Pending';
 
   const isNewUser = (user?.loginCount ?? 1) <= 1;
 
@@ -173,8 +174,8 @@ export const IndustryDashboard: React.FC = () => {
                   <td className="py-3 px-2 text-slate-600 font-medium">{app.studentInstitute}</td>
                   <td className="py-3 px-2 font-semibold text-slate-800">{app.opportunityTitle}</td>
                   <td className="py-3 px-2">
-                    <Badge variant="emerald" size="sm">
-                      {app.skillMatchPercentage || 85}% Compatible
+                    <Badge variant={app.skillMatchPercentage !== undefined ? 'emerald' : 'slate'} size="sm">
+                      {app.skillMatchPercentage !== undefined ? `${app.skillMatchPercentage}% Compatible` : 'Pending Evaluation'}
                     </Badge>
                   </td>
                   <td className="py-3 px-2 text-slate-400">{formatDate(app.appliedDate)}</td>

@@ -118,7 +118,12 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
     }
 
     profile.overallScore = evaluation.overallScore;
-    profile.rankPercentile = Math.min(98, Math.max(50, evaluation.overallScore + 4));
+    const totalProfiles = await SkillProfile.countDocuments({ _id: { $ne: profile._id } });
+    const lowerProfiles = await SkillProfile.countDocuments({
+      _id: { $ne: profile._id },
+      overallScore: { $lt: evaluation.overallScore },
+    });
+    profile.rankPercentile = totalProfiles > 0 ? Math.round((lowerProfiles / totalProfiles) * 100) : evaluation.overallScore;
     profile.skills = evaluation.radar.map((r) => ({
       name: r.subject,
       level: r.score,

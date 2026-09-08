@@ -1,6 +1,6 @@
 export const calculateMatchPercentage = (studentSkills: string[] = [], requiredSkills: string[] = []): number => {
   if (!requiredSkills.length) return 100;
-  if (!studentSkills.length) return 50;
+  if (!studentSkills.length) return 0;
 
   const normalizedStudent = studentSkills.map((s) => s.toLowerCase());
   let matches = 0;
@@ -13,5 +13,5 @@ export const calculateMatchPercentage = (studentSkills: string[] = [], requiredS
   });
 
   const percentage = Math.round((matches / requiredSkills.length) * 100);
-  return Math.min(98, Math.max(65, percentage)); // realistic realistic score range
+  return Math.min(100, Math.max(0, percentage));
 };

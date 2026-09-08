@@ -141,7 +141,7 @@ export const applyInternship = async (req: Request, res: Response) => {
       status: 'applied',
       appliedDate: new Date().toISOString().split('T')[0],
       coverNote,
-      skillMatchPercentage: matchResult.compatibilityScore || 85,
+      skillMatchPercentage: matchResult.compatibilityScore ?? 0,
     });
 
     await application.save();

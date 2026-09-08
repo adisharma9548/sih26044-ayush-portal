@@ -279,26 +279,29 @@ export const evaluateDiagnosticAnswers = async (
     }
   });
 
-  const rawScore = Math.round((correctCount / answers.length) * 100);
-  const normalizedScore = Math.max(45, Math.min(rawScore + 15, 96)); // Calibrate score between 45 and 96
+  const authenticScore = answers.length > 0 ? Math.round((correctCount / answers.length) * 100) : 0;
 
-  const prompt = `A university student in "${degree}" scored ${correctCount} out of ${answers.length} on an initial diagnostic assessment.
-Answer categories: ${answers.map((a) => a.category).join(', ')}.
+  const prompt = `A university student in "${degree}" completed an academic diagnostic assessment and answered ${correctCount} out of ${answers.length} questions correctly, obtaining an overall score of ${authenticScore}%.
+Answer categories evaluated: ${answers.map((a) => a.category).join(', ')}.
 Compute an academic skill evaluation as a JSON object with:
-- "overallScore": number (${normalizedScore})
-- "radar": array of 6 objects { "subject": string, "score": number (40-95), "benchmark": number (70-85) } representing 6 core competency domains for ${degree}.
+- "overallScore": number (${authenticScore})
+- "radar": array of 6 objects { "subject": string, "score": number (0-100 reflecting actual competency), "benchmark": number (70-85) } representing 6 core competency domains for ${degree}.
 - "strengths": array of 2 strings representing their strongest competencies.
-- "gaps": array of 2-3 objects { "skill": string, "gapPercentage": number (15-40), "priority": "High" | "Medium" | "Low" }.
+- "gaps": array of 2-3 objects { "skill": string, "gapPercentage": number (0-100), "priority": "High" | "Medium" | "Low" }.
 - "recommendations": array of 3 objects { "title": string, "provider": string, "duration": string, "type": "Bridge Course" | "Advanced Module" }`;
 
   try {
     const result = await callGroq(prompt);
     if (result && result.radar && Array.isArray(result.radar) && result.radar.length >= 5) {
       return {
-        overallScore: normalizedScore,
-        radar: result.radar,
+        overallScore: authenticScore,
+        radar: result.radar.map((r: any) => ({
+          subject: r.subject || 'Core Domain',
+          score: Math.min(100, Math.max(0, Number(r.score) || 0)),
+          benchmark: Math.min(100, Math.max(50, Number(r.benchmark) || 75)),
+        })),
         strengths: result.strengths || ['Technical Problem Solving', 'Core Foundational Concepts'],
-        gaps: result.gaps || [{ skill: 'Advanced Industry Architecture', gapPercentage: 24, priority: 'High' }],
+        gaps: result.gaps || [{ skill: 'Advanced Industry Architecture', gapPercentage: 100 - authenticScore, priority: 'High' }],
         recommendations: result.recommendations || [
           { title: 'Industry Bridge Specialization', provider: 'National Ayush & Tech Portal', duration: '4 Weeks', type: 'Bridge Course' },
         ],
@@ -308,46 +311,76 @@ Compute an academic skill evaluation as a JSON object with:
     console.warn('[AI Service Notice] Groq evaluation fallback used:', err.message);
   }
 
-  // Resilient heuristic generation
+  // Authentic heuristic evaluation derived directly from candidate answers
+  const categoryStats: Record<string, { correct: number; total: number }> = {};
+  answers.forEach((a) => {
+    const cat = a.category || 'General';
+    if (!categoryStats[cat]) {
+      categoryStats[cat] = { correct: 0, total: 0 };
+    }
+    categoryStats[cat].total++;
+    if (a.selectedIndex === a.correctIndex) {
+      categoryStats[cat].correct++;
+    }
+  });
+
   const isTechnical = degree.toLowerCase().includes('tech') || degree.toLowerCase().includes('computer');
-  const radarCategories = isTechnical
+  const baseSubjects = isTechnical
     ? [
-        { subject: 'Algorithms & Data Structures', score: normalizedScore, benchmark: 80 },
-        { subject: 'Full-Stack Web & APIs', score: Math.min(normalizedScore + 5, 95), benchmark: 75 },
-        { subject: 'Database & Cloud Architecture', score: Math.max(normalizedScore - 8, 50), benchmark: 78 },
-        { subject: 'System Design & OS', score: Math.max(normalizedScore - 12, 48), benchmark: 72 },
-        { subject: 'Machine Learning & Analytics', score: Math.max(normalizedScore - 5, 55), benchmark: 70 },
-        { subject: 'DevOps & CI/CD Pipeline', score: Math.max(normalizedScore - 15, 45), benchmark: 68 },
+        { subject: 'Algorithms & Data Structures', benchmark: 80 },
+        { subject: 'Full-Stack Web & APIs', benchmark: 75 },
+        { subject: 'Database & Cloud Architecture', benchmark: 78 },
+        { subject: 'System Design & OS', benchmark: 72 },
+        { subject: 'Machine Learning & Analytics', benchmark: 70 },
+        { subject: 'DevOps & CI/CD Pipeline', benchmark: 68 },
       ]
     : [
-        { subject: 'Dravyaguna (Herbal Taxonomy)', score: normalizedScore, benchmark: 82 },
-        { subject: 'Phytochemical QC & Fingerprinting', score: Math.min(normalizedScore + 4, 94), benchmark: 75 },
-        { subject: 'Rasashastra & Bhaishajya Formulations', score: Math.max(normalizedScore - 6, 52), benchmark: 80 },
-        { subject: 'Clinical Trials & GCP Protocol', score: Math.max(normalizedScore - 10, 50), benchmark: 74 },
-        { subject: 'Ayush-GMP (Schedule T Standards)', score: Math.max(normalizedScore - 14, 48), benchmark: 76 },
-        { subject: 'Preclinical Pharmacodynamics', score: Math.max(normalizedScore - 8, 54), benchmark: 72 },
+        { subject: 'Dravyaguna (Herbal Taxonomy)', benchmark: 82 },
+        { subject: 'Phytochemical QC & Fingerprinting', benchmark: 75 },
+        { subject: 'Rasashastra & Bhaishajya Formulations', benchmark: 80 },
+        { subject: 'Clinical Trials & GCP Protocol', benchmark: 74 },
+        { subject: 'Ayush-GMP (Schedule T Standards)', benchmark: 76 },
+        { subject: 'Preclinical Pharmacodynamics', benchmark: 72 },
       ];
 
-  const gapSkills = isTechnical
-    ? ['Scalable Distributed Systems & Cloud DevOps', 'Microservices & Enterprise Security Standards']
-    : ['Ayush-GMP Regulatory Documentation (Schedule T)', 'GCP Clinical Trial Design for Herbal Formulations'];
+  const radarCategories = baseSubjects.map((b) => {
+    const matchedCategory = Object.keys(categoryStats).find(
+      (c) => c.toLowerCase().includes(b.subject.toLowerCase()) || b.subject.toLowerCase().includes(c.toLowerCase())
+    );
+    let catScore = authenticScore;
+    if (matchedCategory && categoryStats[matchedCategory].total > 0) {
+      catScore = Math.round((categoryStats[matchedCategory].correct / categoryStats[matchedCategory].total) * 100);
+    }
+    return {
+      subject: b.subject,
+      score: Math.min(100, Math.max(0, catScore)),
+      benchmark: b.benchmark,
+    };
+  });
+
+  const laggingSkills = radarCategories.filter((r) => r.score < r.benchmark);
+  const leadingSkills = radarCategories.filter((r) => r.score >= r.benchmark);
+
+  const gaps = laggingSkills.length > 0
+    ? laggingSkills.slice(0, 3).map((s) => ({
+        skill: s.subject,
+        gapPercentage: Math.max(5, s.benchmark - s.score),
+        priority: (s.benchmark - s.score) >= 25 ? ('High' as const) : ('Medium' as const),
+      }))
+    : [{ skill: 'Specialized Advanced Research', gapPercentage: 10, priority: 'Low' as const }];
+
+  const strengths = leadingSkills.length > 0
+    ? leadingSkills.slice(0, 2).map((s) => s.subject)
+    : [isTechnical ? 'Foundational Computational Concepts' : 'Foundational Pharmacological Concepts'];
+
+  const gapSkills = gaps.map((g) => g.skill);
   const roadmaps = await searchRoadmapsForLaggingSkills(gapSkills, degree);
 
   return {
-    overallScore: normalizedScore,
+    overallScore: authenticScore,
     radar: radarCategories,
-    strengths: isTechnical
-      ? ['Core Data Structures & Computational Logic', 'RESTful API Integration']
-      : ['Botanical Identification & Ethnobotany', 'Phytochemical Extraction Methodologies'],
-    gaps: isTechnical
-      ? [
-          { skill: 'Scalable Distributed Systems & Cloud DevOps', gapPercentage: 28, priority: 'High' },
-          { skill: 'Microservices & Enterprise Security Standards', gapPercentage: 22, priority: 'Medium' },
-        ]
-      : [
-          { skill: 'Ayush-GMP Regulatory Documentation (Schedule T)', gapPercentage: 26, priority: 'High' },
-          { skill: 'GCP Clinical Trial Design for Herbal Formulations', gapPercentage: 20, priority: 'Medium' },
-        ],
+    strengths,
+    gaps,
     recommendations: isTechnical
       ? [
           { title: 'Full-Stack Cloud & DevOps Mastery', provider: 'IIT Delhi & AICTE', duration: '6 Weeks', type: 'Advanced Module' },

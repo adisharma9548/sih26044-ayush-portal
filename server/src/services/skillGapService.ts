@@ -74,7 +74,7 @@ export const analyzeSkillGaps = async (
 
   const totalRequired = Math.max(1, requiredSkillNames.length);
   const matchRatio = (matchingSkills.length + partialSkills.length * 0.6) / totalRequired;
-  const overallCompatibility = Math.min(98, Math.max(50, Math.round(matchRatio * 100)));
+  const overallCompatibility = Math.min(100, Math.max(0, Math.round(matchRatio * 100)));
 
   const explanation = `Matched ${matchingSkills.length} of ${totalRequired} core competencies with high proficiency. ${
     partialSkills.length > 0 ? `${partialSkills.length} competencies have moderate gaps that can be resolved via bridge training.` : ''

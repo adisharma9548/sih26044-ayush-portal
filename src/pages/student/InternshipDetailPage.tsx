@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../services/api';
 import { Internship } from '../../types';
@@ -52,6 +52,18 @@ export const InternshipDetailPage: React.FC = () => {
     };
     fetchDetail();
   }, [id]);
+
+  const matchPercentage = useMemo(() => {
+    if (!internship?.skillsRequired || internship.skillsRequired.length === 0) return null;
+    if (!skillProfile?.skills || skillProfile.skills.length === 0) return null;
+    const userSkills = skillProfile.skills.map((s: any) =>
+      (typeof s === 'string' ? s : s.name || '').toLowerCase().trim()
+    );
+    const matchedCount = internship.skillsRequired.filter((req: string) =>
+      userSkills.some((u: string) => u.includes(req.toLowerCase().trim()) || req.toLowerCase().trim().includes(u))
+    ).length;
+    return Math.round((matchedCount / internship.skillsRequired.length) * 100);
+  }, [internship?.skillsRequired, skillProfile?.skills]);
 
   const handleOpenApply = () => {
     if (!skillProfile || skillProfile.overallScore === 0) {
@@ -118,7 +130,13 @@ export const InternshipDetailPage: React.FC = () => {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{internship.title}</h1>
-                <Badge variant="emerald">88% SKILL MATCH</Badge>
+                {matchPercentage !== null ? (
+                  <Badge variant={matchPercentage >= 70 ? 'emerald' : matchPercentage >= 40 ? 'amber' : 'slate'}>
+                    {matchPercentage}% SKILL MATCH
+                  </Badge>
+                ) : (
+                  <Badge variant="slate">SKILL MATCH: PENDING EVALUATION</Badge>
+                )}
               </div>
               <p className="text-sm font-semibold text-slate-700 mt-1">{internship.company}</p>
               <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 mt-2">

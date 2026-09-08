@@ -184,7 +184,32 @@ The core objective of SIH26044 is to resolve the structural competency gap betwe
 ---
 
 ## 5. Dead / Unused / Duplicated Code Inventory
-1. **`src/components/common/DemoRoleSwitcher.tsx`**: Never imported or rendered across `src/`. Contains static role switching buttons with hardcoded demo emails. Must be deleted in Phase 2.
-2. **`src/pages/student/InternshipDetailPage.tsx:121`**: Hardcoded `88% SKILL MATCH` badge text.
-3. **`src/pages/student/StudentDashboard.tsx:327`**: Hardcoded `90% Match` badge with deceptive comment claims.
-4. **`server/src/seeds/seedDatabase.ts`**: Hardcoded production admin credentials (`admin@skillbridge.gov.in` / `admin`) printed directly to stdout.
+1. **`src/components/common/DemoRoleSwitcher.tsx`**: Never imported or rendered across `src/`. Contains static role switching buttons with hardcoded demo emails. [DELETED in Phase 2]
+2. **`src/services/mockData.ts`**: Unused stub. [DELETED in Phase 2]
+3. **`src/pages/student/InternshipDetailPage.tsx:121`**: Hardcoded `88% SKILL MATCH` badge text. [FIXED in Phase 2: dynamically evaluates candidate vs requirement skills]
+4. **`src/pages/student/StudentDashboard.tsx:327`**: Hardcoded `90% Match` badge with deceptive comment claims. [FIXED in Phase 2: dynamically evaluates candidate vs requirement skills]
+5. **`server/src/seeds/seedDatabase.ts`**: Hardcoded production admin credentials (`admin@skillbridge.gov.in` / `admin`) printed directly to stdout. [FIXED in Phase 1: environment bootstrap with force password reset]
+
+---
+
+## 6. Phase 2 — Forensic Fake Data & Artificial Inflation Purge Log
+Every instance of artificial data fabrication, fake fallback percentages, and mathematical score inflation was systematically eliminated:
+- **`src/utils/helpers.ts`**: Removed artificial `50%` floor when a candidate has 0 skills and removed `Math.min(98, Math.max(65, percentage))` clamp. Now returns authentic `0` to `100%`.
+- **`server/src/services/aiService.ts`**:
+  - Removed `const normalizedScore = Math.max(45, Math.min(rawScore + 15, 96))` which fraudulently gave 0/10 test results a 45% score.
+  - Replaced Groq prompt instructions to evaluate real competencies.
+  - Replaced heuristic radar clamping (`Math.max(normalizedScore - 8, 50)`, etc.) with authentic category accuracy aggregation directly derived from candidate answer correctness.
+- **`server/src/controllers/aiController.ts`**: Replaced `Math.min(98, Math.max(50, evaluation.overallScore + 4))` with authentic mathematical percentile calculated from actual `SkillProfile` records in MongoDB.
+- **`server/src/controllers/skillController.ts`**:
+  - Removed artificial `Math.max(50, ...)` score floor from test submissions.
+  - Replaced `Math.min(99, calculatedScore + 8)` with authentic mathematical percentile calculated from actual `AssessmentAttempt` records in MongoDB.
+  - Removed arbitrary `+ 10` skill level boosting; now updates verified skills based on actual test outcomes.
+- **`server/src/services/skillGapService.ts`**: Removed artificial `Math.max(50, ...)` clamp on `overallCompatibility`.
+- **`server/src/controllers/internshipController.ts`**: Fixed falsy `matchResult.compatibilityScore || 85` bug (where a candidate with 0 matching skills was falsely assigned 85%) to authentic `matchResult.compatibilityScore ?? 0`.
+- **`server/src/controllers/jobController.ts`**: Fixed falsy `matchResult.compatibilityScore || 85` bug to authentic `matchResult.compatibilityScore ?? 0`.
+- **`src/pages/industry/IndustryDashboard.tsx`**: Removed `|| 85` fallback in applicant table; renders authentic percentage or honest `'Pending Evaluation'`.
+- **`src/pages/industry/ManageApplicantsPage.tsx`**: Removed `|| 88` fallback in applicant modal dossier; renders authentic percentage or honest `'Evaluation Pending'`.
+- **`src/pages/student/MyApplicationsPage.tsx`**: Removed `|| 85` fallback in applicant modal matrix.
+- **`src/pages/student/StudentDashboard.tsx`**: Removed `|| 80` national rank percentile fallback.
+- **Files Deleted**: `src/components/common/DemoRoleSwitcher.tsx` and `src/services/mockData.ts`.
+- **Verification**: Both `tsc --noEmit` and `vite build` completed with 0 errors. Backend `tsc` completed with 0 errors.
