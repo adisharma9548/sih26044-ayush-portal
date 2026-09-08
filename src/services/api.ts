@@ -14,6 +14,10 @@ import {
   StudentProject,
   AssessmentQuestion,
   UGCDegreeSuggestion,
+  VerifiedInstitution,
+  VerifiedProgram,
+  ProgramHierarchyResponse,
+  AcademicValidationResult,
 } from '../types';
 
 const BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
@@ -519,6 +523,38 @@ export const ugcService = {
   }
 };
 
+export const academicService = {
+  searchInstitutions: async (query: string): Promise<{ data: { institutions: VerifiedInstitution[] } }> => {
+    const params = new URLSearchParams({ q: query });
+    return apiRequest(`/academic/institutions?${params.toString()}`);
+  },
+
+  getPrograms: async (institution: string, affiliatingUniversity?: string): Promise<{ data: { programs: VerifiedProgram[] } }> => {
+    const params = new URLSearchParams({ institution });
+    if (affiliatingUniversity) {
+      params.append('affiliatingUniversity', affiliatingUniversity);
+    }
+    return apiRequest(`/academic/programs?${params.toString()}`);
+  },
+
+  getHierarchy: async (institution: string, degree: string): Promise<{ data: ProgramHierarchyResponse }> => {
+    const params = new URLSearchParams({ institution, degree });
+    return apiRequest(`/academic/hierarchy?${params.toString()}`);
+  },
+
+  validateCombination: async (payload: {
+    institution: string;
+    degree: string;
+    department?: string;
+    specialization?: string;
+  }): Promise<{ data: AcademicValidationResult }> => {
+    return apiRequest('/academic/validate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
 export const api = {
   auth: authService,
   users: userService,
@@ -539,6 +575,7 @@ export const api = {
   ai: aiServiceClient,
   mous: mouService,
   ugc: ugcService,
+  academic: academicService,
 };
 
 export default api;

@@ -14,6 +14,7 @@ import meetingRoutes from './meetingRoutes';
 import aiRoutes from './aiRoutes';
 import mouRoutes from './mouRoutes';
 import ugcDegreeRoutes from './ugcDegreeRoutes';
+import academicHierarchyRoutes from './academicHierarchyRoutes';
 
 const router = Router();
 
@@ -49,5 +50,6 @@ router.use('/meetings', meetingRoutes);
 router.use('/ai', aiRoutes);
 router.use('/mous', mouRoutes);
 router.use('/degrees', ugcDegreeRoutes);
+router.use('/academic', academicHierarchyRoutes);
 
 export default router;

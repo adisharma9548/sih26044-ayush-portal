@@ -11,6 +11,8 @@ export interface User {
   department?: string;
   designation?: string;
   degree?: string;
+  academicField?: string;
+  specialization?: string;
   graduationYear?: number;
   location?: string;
   phone?: string;
@@ -259,4 +261,45 @@ export interface RoadmapGuidance {
   creditUrl: string;
 }
 
+export interface VerifiedInstitution {
+  id: string;
+  name: string;
+  shortName?: string;
+  type: 'Central University' | 'State University' | 'Deemed University' | 'Institute of National Importance' | 'Affiliated College' | 'Autonomous College' | 'Private University';
+  affiliatingUniversity?: string | null;
+  state: string;
+  city: string;
+  accreditationStatus: string;
+  isRecognized: boolean;
+}
 
+export interface VerifiedProgram {
+  name: string;
+  fullName: string;
+  level: 'Undergraduate' | 'Postgraduate' | 'Doctorate' | 'Diploma' | 'Integrated';
+  academicField: string;
+  isVerified: boolean;
+}
+
+export interface VerifiedDepartment {
+  name: string;
+  specializations: string[];
+}
+
+export interface ProgramHierarchyResponse {
+  institution: string;
+  degree: string;
+  academicField: string;
+  departments: VerifiedDepartment[];
+}
+
+export interface AcademicValidationResult {
+  isValid: boolean;
+  institution: string;
+  degree: string;
+  academicField: string | null;
+  department?: string;
+  specialization?: string;
+  message: string;
+  reason?: string;
+}

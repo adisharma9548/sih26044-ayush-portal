@@ -481,110 +481,308 @@ export interface UGCDegreeSuggestion {
   level: string;
 }
 
-// Authoritative UGC Section 22 official approved degrees
-const UGC_DEGREES_CATALOG: UGCDegreeSuggestion[] = [
-  // Engineering & Technology (AICTE / UGC)
-  { name: 'B.Tech', fullName: 'Bachelor of Technology', category: 'Engineering & Technology', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'B.E.', fullName: 'Bachelor of Engineering', category: 'Engineering & Technology', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'M.Tech', fullName: 'Master of Technology', category: 'Engineering & Technology', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'M.E.', fullName: 'Master of Engineering', category: 'Engineering & Technology', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'B.Arch', fullName: 'Bachelor of Architecture', category: 'Architecture & Planning', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'M.Arch', fullName: 'Master of Architecture', category: 'Architecture & Planning', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'B.Plan', fullName: 'Bachelor of Planning', category: 'Architecture & Planning', ugcApproved: true, level: 'Undergraduate' },
+export interface VerifiedInstitution {
+  id: string;
+  name: string;
+  shortName?: string;
+  type: 'Central University' | 'State University' | 'Deemed University' | 'Institute of National Importance' | 'Affiliated College' | 'Autonomous College' | 'Private University';
+  affiliatingUniversity?: string | null;
+  state: string;
+  city: string;
+  accreditationStatus: string;
+  isRecognized: boolean;
+}
 
-  // Computer Applications & IT
-  { name: 'BCA', fullName: 'Bachelor of Computer Applications', category: 'Computer Applications', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'MCA', fullName: 'Master of Computer Applications', category: 'Computer Applications', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'B.Sc (Computer Science)', fullName: 'Bachelor of Science in Computer Science', category: 'Computer Applications', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'B.Sc (Information Technology)', fullName: 'Bachelor of Science in IT', category: 'Computer Applications', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'M.Sc (Computer Science)', fullName: 'Master of Science in Computer Science', category: 'Computer Applications', ugcApproved: true, level: 'Postgraduate' },
+export interface VerifiedProgram {
+  name: string;
+  fullName: string;
+  level: 'Undergraduate' | 'Postgraduate' | 'Doctorate' | 'Diploma' | 'Integrated';
+  academicField: string;
+  isVerified: boolean;
+}
 
-  // Ayush & Traditional Medicine (NCISM / NCH / UGC)
-  { name: 'BAMS', fullName: 'Bachelor of Ayurvedic Medicine and Surgery', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BHMS', fullName: 'Bachelor of Homoeopathic Medicine and Surgery', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BUMS', fullName: 'Bachelor of Unani Medicine and Surgery', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BNYS', fullName: 'Bachelor of Naturopathy and Yogic Sciences', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BSMS', fullName: 'Bachelor of Siddha Medicine and Surgery', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'MD (Ayurveda)', fullName: 'Doctor of Medicine in Ayurveda', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'MS (Ayurveda)', fullName: 'Master of Surgery in Ayurveda', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'Postgraduate' },
+export interface VerifiedDepartment {
+  name: string;
+  specializations: string[];
+}
 
-  // Pharmacy & Medical Sciences
-  { name: 'B.Pharm', fullName: 'Bachelor of Pharmacy', category: 'Pharmacy & Health Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'M.Pharm', fullName: 'Master of Pharmacy', category: 'Pharmacy & Health Sciences', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'Pharm.D', fullName: 'Doctor of Pharmacy', category: 'Pharmacy & Health Sciences', ugcApproved: true, level: 'Doctorate' },
-  { name: 'MBBS', fullName: 'Bachelor of Medicine and Bachelor of Surgery', category: 'Medical Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BDS', fullName: 'Bachelor of Dental Surgery', category: 'Dental Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BPT', fullName: 'Bachelor of Physiotherapy', category: 'Allied Health Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'B.Sc Nursing', fullName: 'Bachelor of Science in Nursing', category: 'Nursing & Health Sciences', ugcApproved: true, level: 'Undergraduate' },
+export interface ProgramHierarchyResponse {
+  institution: string;
+  degree: string;
+  academicField: string;
+  departments: VerifiedDepartment[];
+}
 
-  // Commerce, Management & Sciences
-  { name: 'B.Com', fullName: 'Bachelor of Commerce', category: 'Commerce & Finance', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'B.Com (Hons)', fullName: 'Bachelor of Commerce (Honours)', category: 'Commerce & Finance', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'M.Com', fullName: 'Master of Commerce', category: 'Commerce & Finance', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'BBA', fullName: 'Bachelor of Business Administration', category: 'Management Studies', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'MBA', fullName: 'Master of Business Administration', category: 'Management Studies', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'B.Sc', fullName: 'Bachelor of Science', category: 'Basic Sciences', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'M.Sc', fullName: 'Master of Science', category: 'Basic Sciences', ugcApproved: true, level: 'Postgraduate' },
-  { name: 'B.Des', fullName: 'Bachelor of Design', category: 'Design & Innovation', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'BA', fullName: 'Bachelor of Arts', category: 'Humanities', ugcApproved: true, level: 'Undergraduate' },
-  { name: 'LLB', fullName: 'Bachelor of Legislative Law', category: 'Legal Studies', ugcApproved: true, level: 'Undergraduate' },
-];
+export interface AcademicValidationResult {
+  isValid: boolean;
+  institution: string;
+  degree: string;
+  academicField: string | null;
+  department?: string;
+  specialization?: string;
+  message: string;
+  reason?: string;
+}
 
-const UGC_FIELDS_CATALOG: UGCDegreeSuggestion[] = [
-  { name: 'Computer Science & Engineering', fullName: 'Computer Science & Software Systems', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Artificial Intelligence & Data Science', fullName: 'AI, Machine Learning and Deep Systems', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Information Technology', fullName: 'Information Technology and Network Systems', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Electronics & Communication', fullName: 'Electronics and Communication Engineering', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Cloud Computing & DevOps', fullName: 'Cloud Architecture, Containerization and DevOps', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Cybersecurity & Threat Defense', fullName: 'Network Security and Cyber Defense Systems', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Biotechnology & Bioinformatics', fullName: 'Computational Biology and Biotechnology', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Biomedical Engineering', fullName: 'Biomedical Devices and Health Informatics', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Mechanical Engineering', fullName: 'Mechanical Systems and Robotics', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Electrical & Electronics', fullName: 'Electrical Power and Embedded Hardware', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Civil & Environmental Engineering', fullName: 'Infrastructure and Environmental Engineering', category: 'Engineering & Technology', ugcApproved: true, level: 'All Levels' },
-  { name: 'Ayurveda - Kayachikitsa', fullName: 'Internal Medicine and Therapeutics', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Ayurveda - Dravyaguna', fullName: 'Phytochemistry, Pharmacology and Pharmacognosy', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Ayurveda - Rasa Shastra', fullName: 'Ayurvedic Pharmaceutical Chemistry', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Ayurveda - Panchakarma', fullName: 'Clinical Detoxification and Therapy', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Yoga & Naturopathy Sciences', fullName: 'Therapeutic Yoga and Naturopathic Medicine', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Unani - Ilmul Advia', fullName: 'Unani Pharmacology and Formulations', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Homoeopathic Therapeutics', fullName: 'Classical Homoeopathy and Materia Medica', category: 'Ayush & Medical Sciences', ugcApproved: true, level: 'All Levels' },
-  { name: 'Commerce & Accountancy', fullName: 'Financial Accounting, Auditing and Taxation', category: 'Commerce & Finance', ugcApproved: true, level: 'All Levels' },
-  { name: 'Finance & Banking Services', fullName: 'Corporate Finance and Financial Technology', category: 'Commerce & Finance', ugcApproved: true, level: 'All Levels' },
-  { name: 'Marketing & Digital Strategy', fullName: 'Strategic Brand and Digital Marketing', category: 'Management Studies', ugcApproved: true, level: 'All Levels' },
-];
+/**
+ * 1. Search and verify recognized Indian higher education institutions against UGC/AICTE official data.
+ * Zero hardcoded catalogs or static fallbacks.
+ */
+export const verifyAndSearchInstitutions = async (
+  query: string
+): Promise<VerifiedInstitution[]> => {
+  const cleanQ = (query || '').trim();
+  if (!cleanQ || cleanQ.length < 2) {
+    return [];
+  }
 
+  try {
+    const prompt = `You are a strict UGC (University Grants Commission) and AICTE official accreditation directory for India.
+The user is searching for Indian higher education institutions with query: "${cleanQ}".
+Search and return ONLY legitimate, UGC/AICTE-recognized universities or colleges matching this query.
+If the institution is an affiliated college, explicitly identify its affiliating university.
+Return a JSON array of up to 8 matching recognized institutions:
+[
+  {
+    "id": "normalized-unique-slug",
+    "name": "Full Official Name",
+    "shortName": "Acronym/Abbreviation or empty string",
+    "type": "Central University" | "State University" | "Deemed University" | "Institute of National Importance" | "Affiliated College" | "Autonomous College" | "Private University",
+    "affiliatingUniversity": "Affiliating University Name or null if independent/autonomous/university itself",
+    "state": "State Name",
+    "city": "City Name",
+    "accreditationStatus": "e.g. Recognized by UGC under Section 2(f) & 12(B) / AICTE Approved",
+    "isRecognized": true
+  }
+]
+If the query does NOT match any legitimate, recognized Indian higher education institution, return strictly [].`;
+
+    const aiResult = await callGroq(prompt);
+    if (Array.isArray(aiResult)) {
+      return aiResult
+        .filter((item: any) => item && item.name && item.isRecognized)
+        .map((item: any) => ({
+          id: item.id || item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          name: item.name.trim(),
+          shortName: item.shortName || undefined,
+          type: item.type || 'Affiliated College',
+          affiliatingUniversity: item.affiliatingUniversity || null,
+          state: item.state || 'India',
+          city: item.city || '',
+          accreditationStatus: item.accreditationStatus || 'Recognized by UGC',
+          isRecognized: true,
+        }));
+    }
+  } catch (err: any) {
+    console.warn('[AI Service Notice] Institution verification error:', err.message);
+  }
+
+  return [];
+};
+
+/**
+ * 2. Retrieve exact programs/degrees verified as offered by a specific institution.
+ * Strictly respects affiliated college constraints without assuming the college offers all university degrees.
+ */
+export const getInstitutionPrograms = async (
+  institution: string,
+  affiliatingUniversity?: string
+): Promise<VerifiedProgram[]> => {
+  const cleanInst = (institution || '').trim();
+  if (!cleanInst) return [];
+
+  try {
+    const prompt = `You are a strict Indian university registrar and UGC accreditation directory.
+Return ONLY exact degrees and programs that are ACTUALLY offered by the selected institution: "${cleanInst}"${
+      affiliatingUniversity ? ` (Affiliated to: "${affiliatingUniversity}")` : ''
+    }.
+Do NOT infer or generalize programs that this institution does not offer.
+If the institution is an affiliated college, list ONLY programs offered at that specific college, NOT all programs of the affiliating university.
+Distinguish exact degree types (e.g. B.Tech, B.E., B.Sc., BCA, MBA, MCA, LLB, LLM, M.Tech, M.Sc., Diploma, PhD, Integrated programs).
+Return a JSON array of verified programs:
+[
+  {
+    "name": "B.Tech",
+    "fullName": "Bachelor of Technology",
+    "level": "Undergraduate",
+    "academicField": "Engineering & Technology",
+    "isVerified": true
+  }
+]
+If the institution has no verified programs or cannot be verified, return strictly [].`;
+
+    const aiResult = await callGroq(prompt);
+    if (Array.isArray(aiResult)) {
+      return aiResult
+        .filter((item: any) => item && item.name && item.fullName)
+        .map((item: any) => ({
+          name: item.name.trim(),
+          fullName: item.fullName.trim(),
+          level: item.level || 'Undergraduate',
+          academicField: item.academicField || 'Higher Education',
+          isVerified: true,
+        }));
+    }
+  } catch (err: any) {
+    console.warn('[AI Service Notice] Institution programs retrieval error:', err.message);
+  }
+
+  return [];
+};
+
+/**
+ * 3. Retrieve academic field, physical departments, and specializations for institution + degree.
+ */
+export const getInstitutionHierarchy = async (
+  institution: string,
+  degree: string
+): Promise<ProgramHierarchyResponse | null> => {
+  const cleanInst = (institution || '').trim();
+  const cleanDeg = (degree || '').trim();
+  if (!cleanInst || !cleanDeg) return null;
+
+  try {
+    const prompt = `You are a strict Indian university academic curriculum and department verifier.
+For the institution "${cleanInst}" and verified degree "${cleanDeg}":
+1. Determine the official academic field (e.g. Engineering & Technology, Computer Applications, Management Studies, Ayush & Medical Sciences).
+2. List ONLY the actual academic departments/divisions that physically exist at "${cleanInst}" for this program.
+3. For each department, list verified specializations/tracks offered at this institution (or ["General"] if standard curriculum).
+Return JSON strictly:
+{
+  "institution": "${cleanInst}",
+  "degree": "${cleanDeg}",
+  "academicField": "Official Academic Field Name",
+  "departments": [
+    {
+      "name": "Department Name",
+      "specializations": ["Specialization Track 1", "General"]
+    }
+  ]
+}
+If this degree is NOT offered by this institution or cannot be verified, return:
+{
+  "institution": "${cleanInst}",
+  "degree": "${cleanDeg}",
+  "academicField": "",
+  "departments": []
+}`;
+
+    const aiResult = await callGroq(prompt);
+    if (aiResult && Array.isArray(aiResult.departments)) {
+      return {
+        institution: cleanInst,
+        degree: cleanDeg,
+        academicField: aiResult.academicField || 'Academic Studies',
+        departments: aiResult.departments.map((d: any) => ({
+          name: d.name || 'General Department',
+          specializations: Array.isArray(d.specializations) && d.specializations.length > 0
+            ? d.specializations
+            : ['General'],
+        })),
+      };
+    }
+  } catch (err: any) {
+    console.warn('[AI Service Notice] Hierarchy retrieval error:', err.message);
+  }
+
+  return null;
+};
+
+/**
+ * 4. End-to-end combination validation for College + Degree (+ Department + Specialization).
+ * Returns strict invalidation message when combinations do not exist.
+ */
+export const validateAcademicHierarchy = async (
+  institution: string,
+  degree: string,
+  department?: string,
+  specialization?: string
+): Promise<AcademicValidationResult> => {
+  const cleanInst = (institution || '').trim();
+  const cleanDeg = (degree || '').trim();
+  const cleanDept = (department || '').trim();
+  const cleanSpec = (specialization || '').trim();
+
+  if (!cleanInst || !cleanDeg) {
+    return {
+      isValid: false,
+      institution: cleanInst,
+      degree: cleanDeg,
+      academicField: null,
+      message: 'Both College/Institution and Degree/Program must be specified for verification.',
+    };
+  }
+
+  try {
+    const prompt = `You are a strict UGC and Indian university accreditation validation engine.
+Evaluate whether the exact combination of institution, degree, and optional department/specialization is verified to exist.
+Institution: "${cleanInst}"
+Degree: "${cleanDeg}"
+Department: "${cleanDept || 'Not specified'}"
+Specialization: "${cleanSpec || 'Not specified'}"
+
+Validation Rules:
+1. Prioritize official institution websites, university statutes, and UGC official records.
+2. Do not assume or generalize. If the institution does NOT offer this exact degree (e.g. IIT Delhi offering LLM, or Ayurveda college offering B.Tech), isValid MUST be false.
+3. If department is specified, verify that the department physically exists at this institution for this degree.
+4. If invalid, the message MUST be: "This degree could not be verified as being offered by the selected institution. Please select a valid college or degree/program." (or specific accurate explanation if department/specialization is invalid).
+Return JSON strictly:
+{
+  "isValid": boolean,
+  "institution": "${cleanInst}",
+  "degree": "${cleanDeg}",
+  "academicField": "Official Academic Field Name or null",
+  "department": "${cleanDept}",
+  "specialization": "${cleanSpec}",
+  "message": "Human-readable explanation of verification outcome"
+}`;
+
+    const aiResult = await callGroq(prompt);
+    if (aiResult && typeof aiResult.isValid === 'boolean') {
+      return {
+        isValid: aiResult.isValid,
+        institution: cleanInst,
+        degree: cleanDeg,
+        academicField: aiResult.academicField || null,
+        department: cleanDept || undefined,
+        specialization: cleanSpec || undefined,
+        message: aiResult.message || (aiResult.isValid
+          ? 'Academic combination verified successfully.'
+          : 'This degree could not be verified as being offered by the selected institution. Please select a valid college or degree/program.'),
+      };
+    }
+  } catch (err: any) {
+    console.warn('[AI Service Notice] Combination validation error:', err.message);
+  }
+
+  return {
+    isValid: false,
+    institution: cleanInst,
+    degree: cleanDeg,
+    academicField: null,
+    message: 'Unable to verify academic combination due to verification service unavailability. Please try again.',
+  };
+};
+
+/**
+ * 5. Dynamic search for UGC Section 22 recognized degrees or fields.
+ * ZERO static catalog fallback. Returns pure dynamically verified items.
+ */
 export const searchUGCDegrees = async (
   query: string,
   type: 'degree' | 'field' = 'degree'
 ): Promise<UGCDegreeSuggestion[]> => {
-  const cleanQ = (query || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-  const catalog = type === 'degree' ? UGC_DEGREES_CATALOG : UGC_FIELDS_CATALOG;
-
-  if (!cleanQ) {
-    return catalog.slice(0, 10);
+  const cleanQ = (query || '').trim();
+  if (!cleanQ || cleanQ.length < 2) {
+    return [];
   }
 
-  // 1. Authoritative local filter matching acronyms or full names
-  const localMatches = catalog.filter((item) => {
-    const itemCode = item.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const itemFull = item.fullName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const itemCat = item.category.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return itemCode.includes(cleanQ) || itemFull.includes(cleanQ) || itemCat.includes(cleanQ) || cleanQ.includes(itemCode);
-  });
-
-  // If we already have strong matches or query is short, return local authoritative catalog
-  if (localMatches.length >= 2 || cleanQ.length < 3) {
-    return localMatches;
-  }
-
-  // 2. Query Groq AI for dynamic UGC validation
   try {
     const prompt = `You are a strict UGC (University Grants Commission, India) academic accreditation engine.
-The user is searching for: "${query}" (category: ${type === 'degree' ? 'Official Degree' : 'Specialization/Field'}).
+The user is searching for: "${cleanQ}" (category: ${type === 'degree' ? 'Official UGC Degree' : 'Specialization/Field'}).
 Return ONLY degrees or fields that are officially approved and recognized by the UGC under Section 22 of the UGC Act 1956 or AICTE/NCISM.
 Do NOT include unrecognized private certificate titles or unaccredited diplomas.
-Return a JSON array of up to 5 matching approved degrees/fields:
+Return a JSON array of up to 6 matching approved degrees/fields:
 [
   {
     "name": "B.Tech",
@@ -593,35 +791,24 @@ Return a JSON array of up to 5 matching approved degrees/fields:
     "ugcApproved": true,
     "level": "Undergraduate"
   }
-]`;
+]
+If no recognized UGC degrees match, return strictly [].`;
 
     const aiResult = await callGroq(prompt);
     if (Array.isArray(aiResult) && aiResult.length > 0) {
-      const formatted = aiResult
-        .filter((item: any) => item.name && item.fullName)
+      return aiResult
+        .filter((item: any) => item && item.name && item.fullName)
         .map((item: any) => ({
-          name: item.name,
-          fullName: item.fullName,
+          name: item.name.trim(),
+          fullName: item.fullName.trim(),
           category: item.category || (type === 'degree' ? 'Higher Education' : 'Academic Stream'),
           ugcApproved: true,
-          level: item.level || 'Undergraduate'
+          level: item.level || 'Undergraduate',
         }));
-
-      // Combine and deduplicate
-      const seen = new Set<string>();
-      const combined: UGCDegreeSuggestion[] = [];
-      for (const item of [...localMatches, ...formatted]) {
-        const key = item.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (!seen.has(key)) {
-          seen.add(key);
-          combined.push(item);
-        }
-      }
-      return combined.slice(0, 10);
     }
   } catch (err: any) {
-    console.warn('[AI Service Notice] UGC search AI fallback:', err.message);
+    console.warn('[AI Service Notice] UGC dynamic search error:', err.message);
   }
 
-  return localMatches;
+  return [];
 };

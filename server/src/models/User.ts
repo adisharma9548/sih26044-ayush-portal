@@ -14,6 +14,8 @@ export interface IUser extends Document {
   department?: string;
   designation?: string;
   degree?: string;
+  academicField?: string;
+  specialization?: string;
   graduationYear?: number;
   location?: string;
   phone?: string;
@@ -66,6 +68,8 @@ const UserSchema: Schema = new Schema(
     department: { type: String, default: '' },
     designation: { type: String, default: '' },
     degree: { type: String, default: '' },
+    academicField: { type: String, default: '' },
+    specialization: { type: String, default: '' },
     graduationYear: { type: Number },
     location: { type: String, default: '' },
     phone: { type: String, default: '' },

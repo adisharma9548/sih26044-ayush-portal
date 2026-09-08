@@ -8,7 +8,7 @@ import { recordAuditLog } from '../services/auditService';
 
 export const getDiagnosticQuestions = async (req: AuthRequest, res: Response) => {
   try {
-    const degree = (req.query.degree as string) || req.user?.degree || 'B.Tech Computer Science & Engineering';
+    const degree = (req.query.degree as string) || req.user?.degree || '';
     const domain = (req.query.domain as string) || req.user?.currentDomain || req.query.specialization as string || '';
     const targetDomain = (req.query.targetDomain as string) || req.user?.targetDomain || '';
 
@@ -100,7 +100,7 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
     }
 
     const { answers, degree } = req.body;
-    const targetDegree = degree || req.user.degree || 'B.Tech Computer Science & Engineering';
+    const targetDegree = degree || req.user.degree || '';
 
     if (!answers || !Array.isArray(answers) || answers.length === 0) {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Diagnostic answers are required' } });

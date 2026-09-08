@@ -33,7 +33,7 @@ export const MentorshipWorkshopPage: React.FC = () => {
     mode: 'Online' as const,
     capacity: 100,
     description: '',
-    targetAudience: 'Scholars, Interns, and Researchers'
+    targetAudience: ''
   });
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export const MentorshipWorkshopPage: React.FC = () => {
       mode: 'Online',
       capacity: 150,
       description: '',
-      targetAudience: 'BAMS Interns, MD Scholars, and Bio-Pharma Students'
+      targetAudience: ''
     });
   };
 

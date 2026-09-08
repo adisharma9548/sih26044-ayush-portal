@@ -4,7 +4,7 @@ import { api } from '../../services/api';
 import { User, ShieldCheck, Mail, Phone, MapPin, Building, Award, KeyRound, BellRing, Save, Camera, Trash2, Loader2, GraduationCap } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { UserAvatar } from '../../components/common/UserAvatar';
-import { UGCDegreeSelector } from '../../components/common/UGCDegreeSelector';
+import { AcademicHierarchySelector } from '../../components/common/AcademicHierarchySelector';
 
 export const ProfileSettingsPage: React.FC = () => {
   const { user, role, updateProfile, uploadAvatar, removeAvatar, isLoading } = useAuth();
@@ -23,6 +23,8 @@ export const ProfileSettingsPage: React.FC = () => {
     institution: user?.institution || '',
     department: user?.department || '',
     degree: user?.degree || '',
+    academicField: user?.academicField || '',
+    specialization: user?.specialization || '',
     graduationYear: user?.graduationYear ? String(user.graduationYear) : '',
     bio: user?.bio || '',
     currentPassword: '',
@@ -93,6 +95,8 @@ export const ProfileSettingsPage: React.FC = () => {
       institution: formData.institution,
       department: formData.department,
       degree: formData.degree,
+      academicField: formData.academicField,
+      specialization: formData.specialization,
       graduationYear: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
     });
     setSuccessMsg('Profile updated successfully.');
@@ -277,34 +281,28 @@ export const ProfileSettingsPage: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Institution / Enterprise</label>
-              <input
-                type="text"
-                name="institution"
-                value={formData.institution}
-                onChange={handleChange}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Department / Division</label>
-              <input
-                type="text"
-                name="department"
-                value={formData.department}
-                onChange={handleChange}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <UGCDegreeSelector
-                value={formData.degree}
-                onChange={(val) => setFormData(prev => ({ ...prev, degree: val }))}
-                placeholder="Search UGC qualification (e.g. B.Tech, MCA, BAMS)..."
-                label="Degree / Academic Field (UGC Section 22)"
+            {/* Academic Hierarchy Selector (Enforces College -> Degree -> Field -> Department -> Specialization) */}
+            <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+              <AcademicHierarchySelector
+                value={{
+                  institution: formData.institution,
+                  degree: formData.degree,
+                  academicField: formData.academicField,
+                  department: formData.department,
+                  specialization: formData.specialization,
+                }}
+                onChange={(val) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    institution: val.institution,
+                    degree: val.degree,
+                    academicField: val.academicField || '',
+                    department: val.department,
+                    specialization: val.specialization || '',
+                  }));
+                }}
+                showDegree={role === 'student' || role === 'jobseeker'}
+                showSpecialization={role === 'student' || role === 'jobseeker'}
               />
             </div>
 

@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../types';
 import { api } from '../../services/api';
 import { Captcha, CaptchaRef } from '../../components/common/Captcha';
-import { UGCDegreeSelector } from '../../components/common/UGCDegreeSelector';
+import { AcademicHierarchySelector } from '../../components/common/AcademicHierarchySelector';
 import {
   User as UserIcon,
   Mail,
@@ -55,14 +55,16 @@ export const SignupPage: React.FC = () => {
     email: '',
     password: '',
     institution: '',
-    degree: 'B.Tech in Computer Science & Engineering (CSE)',
-    department: 'Department of Computer Science & Engineering',
-    designation: 'Undergraduate Scholar',
-    industry: 'Technology & Software Systems',
+    degree: '',
+    academicField: '',
+    department: '',
+    specialization: '',
+    designation: '',
+    industry: '',
     licenseNumber: '',
     facultyId: '',
-    graduationYear: 2026,
-    ayushDomain: 'Technology & Engineering' as any,
+    graduationYear: new Date().getFullYear(),
+    ayushDomain: '' as any,
   });
 
   const [otpStep, setOtpStep] = useState(false);
@@ -92,6 +94,16 @@ export const SignupPage: React.FC = () => {
       }
     }
 
+    // Academic verification checks
+    if (role === 'student' || role === 'jobseeker') {
+      if (!formData.institution.trim()) {
+        return 'Please select a verified college or institution.';
+      }
+      if (!formData.degree.trim()) {
+        return 'Please select a verified degree/program offered by your institution.';
+      }
+    }
+
     // 2. Job Seeker (Allows any valid email address)
     if (role === 'jobseeker') {
       if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
@@ -100,8 +112,13 @@ export const SignupPage: React.FC = () => {
     }
 
     // 3. Academician Faculty ID check
-    if (role === 'academician' && !formData.facultyId.trim()) {
-      return 'University Faculty ID / Registration number is required for academician registration.';
+    if (role === 'academician') {
+      if (!formData.institution.trim()) {
+        return 'Please select a verified university or college.';
+      }
+      if (!formData.facultyId.trim()) {
+        return 'University Faculty ID / Registration number is required for academician registration.';
+      }
     }
 
     // 4. Industry corporate work email check
@@ -176,6 +193,8 @@ export const SignupPage: React.FC = () => {
         role,
         institution: formData.institution.trim(),
         degree: formData.degree,
+        academicField: formData.academicField,
+        specialization: formData.specialization,
         department: formData.department,
         designation: formData.designation,
         industry: formData.industry,
@@ -332,52 +351,37 @@ export const SignupPage: React.FC = () => {
           {/* Student Fields */}
           {role === 'student' && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">University / College</label>
-                  <input
-                    type="text"
-                    required
-                    name="institution"
-                    value={formData.institution}
-                    onChange={handleChange}
-                    placeholder="Delhi Technological University (DTU)"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <UGCDegreeSelector
-                    value={formData.degree}
-                    onChange={(val) => setFormData(prev => ({ ...prev, degree: val }))}
-                    placeholder="Search UGC degree (e.g. B.Tech, B.Com, BAMS)..."
-                    label="Degree Program"
-                    required
-                  />
-                </div>
-              </div>
+              <AcademicHierarchySelector
+                value={{
+                  institution: formData.institution,
+                  degree: formData.degree,
+                  academicField: formData.academicField,
+                  department: formData.department,
+                  specialization: formData.specialization,
+                }}
+                onChange={(val) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    institution: val.institution,
+                    degree: val.degree,
+                    academicField: val.academicField || '',
+                    department: val.department,
+                    specialization: val.specialization || '',
+                    ayushDomain: (val.academicField || prev.ayushDomain) as any,
+                  }));
+                  setFormError(null);
+                }}
+                required
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Discipline Stream</label>
-                  <select
-                    name="ayushDomain"
-                    value={formData.ayushDomain}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    <option value="Technology & Engineering">Technology & Engineering</option>
-                    <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
-                    <option value="Cloud & DevOps">Cloud & DevOps</option>
-                    <option value="Electronics & IoT">Electronics & IoT</option>
-                    <option value="Ayush & Health-Tech">Health-Tech Informatics</option>
-                    <option value="Core Engineering">Core Engineering</option>
-                  </select>
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Graduation Passing Year</label>
                   <input
                     type="number"
                     name="graduationYear"
+                    min="1970"
+                    max="2035"
                     value={formData.graduationYear}
                     onChange={handleChange}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -390,52 +394,37 @@ export const SignupPage: React.FC = () => {
           {/* Job Seeker Fields */}
           {role === 'jobseeker' && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">College / University / Last Institute</label>
-                  <input
-                    type="text"
-                    required
-                    name="institution"
-                    value={formData.institution}
-                    onChange={handleChange}
-                    placeholder="e.g. Delhi Technological University, NIT, Mumbai University"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <UGCDegreeSelector
-                    value={formData.degree}
-                    onChange={(val) => setFormData(prev => ({ ...prev, degree: val }))}
-                    placeholder="Search UGC qualification (e.g. B.Tech, MCA, B.Sc)..."
-                    label="Highest Qualification / Degree"
-                    required
-                  />
-                </div>
-              </div>
+              <AcademicHierarchySelector
+                value={{
+                  institution: formData.institution,
+                  degree: formData.degree,
+                  academicField: formData.academicField,
+                  department: formData.department,
+                  specialization: formData.specialization,
+                }}
+                onChange={(val) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    institution: val.institution,
+                    degree: val.degree,
+                    academicField: val.academicField || '',
+                    department: val.department,
+                    specialization: val.specialization || '',
+                    ayushDomain: (val.academicField || prev.ayushDomain) as any,
+                  }));
+                  setFormError(null);
+                }}
+                required
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Target Discipline / Domain</label>
-                  <select
-                    name="ayushDomain"
-                    value={formData.ayushDomain}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  >
-                    <option value="Technology & Engineering">Technology & Engineering</option>
-                    <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
-                    <option value="Cloud & DevOps">Cloud & DevOps</option>
-                    <option value="Electronics & IoT">Electronics & IoT</option>
-                    <option value="Ayush & Health-Tech">Health-Tech Informatics</option>
-                    <option value="Core Engineering">Core Engineering</option>
-                  </select>
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1.5">Graduation Passing Year</label>
                   <input
                     type="number"
                     name="graduationYear"
+                    min="1970"
+                    max="2035"
                     value={formData.graduationYear}
                     onChange={handleChange}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -486,33 +475,43 @@ export const SignupPage: React.FC = () => {
           {/* Academician Fields */}
           {role === 'academician' && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">University / College</label>
-                  <input
-                    type="text"
-                    required
-                    name="institution"
-                    value={formData.institution}
-                    onChange={handleChange}
-                    placeholder="e.g. Delhi Technological University"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                    Faculty ID / Employee Code <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    name="facultyId"
-                    value={formData.facultyId}
-                    onChange={handleChange}
-                    placeholder="FAC-2026-ENG-891"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                  />
-                </div>
+              <AcademicHierarchySelector
+                value={{
+                  institution: formData.institution,
+                  degree: formData.degree,
+                  academicField: formData.academicField,
+                  department: formData.department,
+                  specialization: formData.specialization,
+                }}
+                onChange={(val) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    institution: val.institution,
+                    degree: val.degree,
+                    academicField: val.academicField || '',
+                    department: val.department,
+                    specialization: val.specialization || '',
+                  }));
+                  setFormError(null);
+                }}
+                showDegree={false}
+                showSpecialization={false}
+                required
+              />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Faculty ID / Employee Code <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  name="facultyId"
+                  value={formData.facultyId}
+                  onChange={handleChange}
+                  placeholder="FAC-2026-ENG-891"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
               </div>
             </div>
           )}
