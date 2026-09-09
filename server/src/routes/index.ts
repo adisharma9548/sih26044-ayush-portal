@@ -18,6 +18,18 @@ import academicHierarchyRoutes from './academicHierarchyRoutes';
 
 const router = Router();
 
+// API Root Info
+router.get('/', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'SIH26044-Ayush-Portal-Backend',
+    message: 'SIH26044 REST API Base',
+    health: '/api/health',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health Check Endpoint (never exposes secrets)
 router.get('/health', (_req, res) => {
   const dbState = mongoose.connection.readyState;

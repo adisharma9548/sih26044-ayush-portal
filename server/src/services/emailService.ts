@@ -51,13 +51,24 @@ const getTransporter = (): nodemailer.Transporter | null => {
 export const sendOtpEmail = async (
   email: string,
   purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' = 'SIGNUP_VERIFICATION'
-): Promise<{ success: boolean; message: string; devOtp?: string }> => {
+): Promise<{ success: boolean; message: string }> => {
+  const cleanEmail = email.toLowerCase().trim();
   const otp = generateOtp();
 
-  // 1. Immediately store OTP in database
-  await OtpVerification.deleteMany({ email: email.toLowerCase(), purpose });
+  const transporter = getTransporter();
+  if (!transporter) {
+    console.error(
+      `❌ [SMTP CONFIG ERROR] Cannot deliver verification email to ${cleanEmail}: Email credentials (GMAIL_USER & GMAIL_APP_PASSWORD, or SMTP_HOST/USER/PASS) are missing in the server environment.`
+    );
+    throw new Error(
+      'Email service is currently unavailable. Please contact the administrator at support@skillbridge.gov.in.'
+    );
+  }
+
+  // 1. Store OTP in database
+  await OtpVerification.deleteMany({ email: cleanEmail, purpose });
   await OtpVerification.create({
-    email: email.toLowerCase(),
+    email: cleanEmail,
     otp,
     purpose,
     attempts: 0,
@@ -69,18 +80,16 @@ export const sendOtpEmail = async (
       : `${otp} is your SkillBridge password reset code`;
 
   console.log(`\n======================================================`);
-  console.log(`📬 [EMAIL OTP DISPATCH] To: ${email}`);
-  console.log(`🔑 Verification Code (OTP): [ ${otp} ]`);
-  console.log(`⏳ Valid for 10 minutes`);
+  console.log(`📬 [EMAIL OTP DISPATCH] Destination: ${cleanEmail}`);
+  console.log(`⏳ Valid for 10 minutes (Stored securely in MongoDB)`);
   console.log(`======================================================\n`);
 
-  const transporter = getTransporter();
+  const senderAddress = process.env.GMAIL_USER?.trim() || process.env.SMTP_USER?.trim() || 'noreply@skillbridge.gov.in';
 
-  if (transporter) {
-    const senderAddress = process.env.GMAIL_USER || process.env.SMTP_USER;
-    const mailPromise = transporter.sendMail({
+  try {
+    await transporter.sendMail({
       from: `"SkillBridge Portal" <${senderAddress}>`,
-      to: email,
+      to: cleanEmail,
       replyTo: senderAddress,
       subject,
       text: `Hello,\n\nYour SkillBridge verification code is: ${otp}\n\nThis one-time code is valid for 10 minutes.\nIf you did not request this verification code, please disregard this email.\n\n— SkillBridge National Directorate`,
@@ -132,31 +141,17 @@ export const sendOtpEmail = async (
       },
     });
 
-    // Race delivery with a 3.5s timeout so slow SMTP network never freezes the API response
-    const timeoutPromise = new Promise<{ timedOut: boolean }>((resolve) =>
-      setTimeout(() => resolve({ timedOut: true }), 3500)
-    );
-
-    Promise.race([mailPromise, timeoutPromise])
-      .then((res: any) => {
-        if (res?.timedOut) {
-          console.log(`⏳ [SMTP BACKGROUND] Email delivery for ${email} continuing in background...`);
-        } else {
-          console.log(`✅ [SMTP SUCCESS] Verification email delivered to ${email}`);
-        }
-      })
-      .catch((smtpErr: any) => {
-        console.error('❌ [SMTP ERROR] Failed to deliver email via SMTP:', smtpErr.message);
-      });
-  } else {
-    console.log(`ℹ️ [SMTP NOTICE] GMAIL_USER/GMAIL_APP_PASSWORD not detected in environment. Using direct verification mode.`);
+    console.log(`✅ [SMTP SUCCESS] Verification email delivered to ${cleanEmail}`);
+  } catch (smtpErr: any) {
+    console.error('❌ [SMTP ERROR] Failed to deliver email via SMTP:', smtpErr.message || smtpErr);
+    // Delete the OTP record so user is not stuck with an undelivered code
+    await OtpVerification.deleteMany({ email: cleanEmail, purpose });
+    throw new Error('Failed to deliver verification email to your address. Please check your email and try again.');
   }
 
-  // Always return devOtp so user/evaluator is never locked out during evaluation or if SMTP is delayed
   return {
     success: true,
-    message: `Verification code dispatched to ${email}.`,
-    devOtp: otp,
+    message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
   };
 };
 

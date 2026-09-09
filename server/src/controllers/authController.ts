@@ -374,18 +374,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
     }
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
-    let devOtp: string | undefined;
     if (user) {
-      const result = await sendOtpEmail(cleanEmail, 'PASSWORD_RESET');
-      devOtp = result.devOtp;
+      await sendOtpEmail(cleanEmail, 'PASSWORD_RESET');
     }
 
     // Always return generic success message to prevent user enumeration (OWASP A07:2025)
     res.json({
       data: {
         success: true,
-        message: `If an account with ${cleanEmail} exists, a password reset verification code has been dispatched.`,
-        devOtp,
+        message: `If an account with ${cleanEmail} exists, a password reset verification code has been dispatched to that email address.`,
       },
     });
   } catch (err: any) {

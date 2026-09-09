@@ -17,6 +17,7 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import mongoose from 'mongoose';
 import { connectDB } from './config/db';
 import { initRedis } from './config/redis';
 import { initSocketIO } from './services/socketService';
@@ -116,6 +117,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/auth/send-otp', authLimiter);
 app.use('/api/auth/send-registration-otp', authLimiter);
 app.use('/api', globalLimiter);
 
@@ -127,10 +129,46 @@ app.use(mongoSanitize);
 // 3. Initialize Real-Time WebSockets
 initSocketIO(server);
 
-// 4. Mount Master API Routes
+// 4. Health Check & Root Endpoints (Handles GET & HEAD for Render health checks and uptime probes)
+const handleHealthCheck = (_req: express.Request, res: express.Response) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus =
+    dbState === 1 ? 'connected' :
+    dbState === 2 ? 'connecting' :
+    dbState === 3 ? 'disconnecting' : 'disconnected';
+
+  res.status(200).json({
+    status: 'ok',
+    service: 'SIH26044-Ayush-Portal-Backend',
+    message: 'SIH26044 Ayush Portal Backend API is running.',
+    database: dbStatus,
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      apiBase: '/api',
+    },
+  });
+};
+
+app.get(['/', '/health'], handleHealthCheck);
+app.head(['/', '/health'], (_req, res) => res.status(200).end());
+
+// 5. Mount Master API Routes
 app.use('/api', apiRouter);
 
-// 5. Centralized Error Handler
+// 6. 404 Handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: {
+      code: 'NOT_FOUND',
+      message: `Cannot ${req.method} ${req.originalUrl}`,
+    },
+  });
+});
+
+// 7. Centralized Error Handler
 app.use(errorHandler);
 
 // 6. Connect Database & Start Server
@@ -154,6 +192,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export { app, server };
