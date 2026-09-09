@@ -106,7 +106,7 @@ export const authService = {
     return data;
   },
 
-  sendOtp: async (payload: { email: string; role: string; companyName?: string; facultyId?: string }): Promise<{ data: { success: boolean; message: string } }> => {
+  sendOtp: async (payload: { email: string; role: string; companyName?: string; facultyId?: string }): Promise<{ data: { success: boolean; message: string; devOtp?: string } }> => {
     return apiRequest('/auth/send-otp', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -162,7 +162,7 @@ export const authService = {
     }
   },
 
-  resetPassword: async (email: string): Promise<{ data: { success: boolean; message: string } }> => {
+  resetPassword: async (email: string): Promise<{ data: { success: boolean; message: string; devOtp?: string } }> => {
     return apiRequest('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email }),

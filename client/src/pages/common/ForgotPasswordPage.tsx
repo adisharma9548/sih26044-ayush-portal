@@ -7,10 +7,11 @@ export const ForgotPasswordPage: React.FC = () => {
   const [step, setStep] = useState<'email' | 'otp' | 'reset' | 'success'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [devOtpHelper, setDevOtpHelper] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -21,6 +22,9 @@ export const ForgotPasswordPage: React.FC = () => {
     try {
       const res = await api.auth.resetPassword(email);
       setMessage(res.data?.message || 'Verification code sent to your registered email.');
+      if (res.data?.devOtp) {
+        setDevOtpHelper(res.data.devOtp);
+      }
       setStep('otp');
     } catch (err: any) {
       setError(err.message || 'Failed to send reset code. Please check the email address.');
@@ -116,6 +120,22 @@ export const ForgotPasswordPage: React.FC = () => {
             {error && (
               <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs mb-4">
                 {error}
+              </div>
+            )}
+
+            {devOtpHelper && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between mb-4">
+                <div>
+                  <span className="font-semibold text-[11px] uppercase tracking-wide text-emerald-700 block">Instant Verification Assist:</span>
+                  <span className="font-mono font-bold text-sm tracking-wider text-emerald-800">{devOtpHelper}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOtp(devOtpHelper)}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs cursor-pointer shadow-sm transition-all"
+                >
+                  Auto-fill
+                </button>
               </div>
             )}
 

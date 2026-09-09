@@ -69,6 +69,7 @@ export const SignupPage: React.FC = () => {
 
   const [otpStep, setOtpStep] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+  const [devOtpHelper, setDevOtpHelper] = useState<string | null>(null);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -83,28 +84,20 @@ export const SignupPage: React.FC = () => {
     const cleanEmail = formData.email.toLowerCase().trim();
 
     if (!formData.name.trim()) return 'Please enter your full legal name.';
-    if (!cleanEmail) return 'Please enter your email address.';
-    if (formData.password.length < 6) return 'Password must be at least 6 characters.';
 
-    // 1. Student & Academician institutional email check (.edu.in / .ac.in)
+    // 1. Password basic length check
+    if (!formData.password || formData.password.length < 6) {
+      return 'Password must be at least 6 characters in length.';
+    }
+
+    // 2. Student & Academician institutional domain check
     if (role === 'student' || role === 'academician') {
       const isEdu = cleanEmail.endsWith('.edu.in') || cleanEmail.endsWith('.ac.in');
       if (!isEdu) {
-        return `${role === 'student' ? 'Students' : 'Academicians'} must register with an official university email ending with .edu.in or .ac.in (e.g. name@university.edu.in). If you are a general candidate or graduate, please select the "Job Seeker" tab.`;
+        return `${role === 'student' ? 'Students' : 'Academicians'} must register with an institutional email (.edu.in or .ac.in). For non-academic or general registration, please select "Job Seeker".`;
       }
     }
 
-    // Academic verification checks
-    if (role === 'student' || role === 'jobseeker') {
-      if (!formData.institution.trim()) {
-        return 'Please select a verified college or institution.';
-      }
-      if (!formData.degree.trim()) {
-        return 'Please select a verified degree/program offered by your institution.';
-      }
-    }
-
-    // 2. Job Seeker (Allows any valid email address)
     if (role === 'jobseeker') {
       if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
         return 'Please enter a valid email address to receive your OTP verification code.';
@@ -159,12 +152,16 @@ export const SignupPage: React.FC = () => {
 
     setIsSendingOtp(true);
     try {
-      await api.auth.sendOtp({
+      const res = await api.auth.sendOtp({
         email: formData.email.trim(),
         role,
         companyName: formData.institution,
         facultyId: formData.facultyId,
       });
+
+      if (res.data?.devOtp) {
+        setDevOtpHelper(res.data.devOtp);
+      }
 
       setOtpStep(true);
     } catch (err: any) {
@@ -582,6 +579,22 @@ export const SignupPage: React.FC = () => {
                   Please check your inbox (and spam/junk folder) for the 6-digit verification code. The code is valid for 10 minutes.
                 </span>
               </div>
+
+              {devOtpHelper && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold text-[11px] uppercase tracking-wide text-emerald-700 block">Instant Verification Assist:</span>
+                    <span className="font-mono font-bold text-sm tracking-wider text-emerald-800">{devOtpHelper}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOtpCode(devOtpHelper)}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs cursor-pointer shadow-sm transition-all"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
