@@ -19,7 +19,17 @@ try {
 } catch {}
 
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { OtpVerification } from '../models/OtpVerification';
+
+// Cached Resend client (initialized lazily)
+let resendClient: Resend | null = null;
+const getResendClient = (): Resend | null => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return null;
+  if (!resendClient) resendClient = new Resend(apiKey);
+  return resendClient;
+};
 
 export const generateOtp = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -185,9 +195,12 @@ export const sendOtpEmail = async (
   const { appName, supportEmail, senderAddress } = getEmailConfig();
 
   const transporter = getTransporter();
-  if (!transporter) {
+  const resend = getResendClient();
+
+  // Require at least one delivery method
+  if (!transporter && !resend) {
     console.error(
-      `❌ [SMTP CONFIG ERROR] Cannot deliver verification email to ${cleanEmail}: Email credentials (GMAIL_USER & GMAIL_APP_PASSWORD, or SMTP_HOST/USER/PASS) are missing in the server environment.`
+      `❌ [EMAIL CONFIG ERROR] No email service configured for ${cleanEmail}. Set RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD.`
     );
     throw new Error(
       `Email service is currently unavailable. Please contact support at ${supportEmail}.`
@@ -215,13 +228,7 @@ export const sendOtpEmail = async (
   console.log(`⏳ Valid for 10 minutes (Stored securely in MongoDB)`);
   console.log(`======================================================\n`);
 
-  const mailOptions = {
-    from: `"${appName}" <${senderAddress}>`,
-    to: cleanEmail,
-    replyTo: senderAddress,
-    subject,
-    text: `Hello,\n\nYour ${appName} ${actionTitle.toLowerCase()} is: ${otp}\n\nThis one-time code is valid for 10 minutes.\nIf you did not request this verification code, please disregard this email or contact ${supportEmail}.\n\n— ${appName} Team`,
-    html: `
+  const htmlBody = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -238,81 +245,107 @@ export const sendOtpEmail = async (
       <h1 style="color: #0f172a; margin-top: 16px; margin-bottom: 4px; font-size: 20px; font-weight: 700;">${actionTitle}</h1>
       <p style="font-size: 13px; color: #64748b; margin: 0;">Secure Institutional Access</p>
     </div>
-
-    <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 8px;">
-      Hello,
-    </p>
+    <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 8px;">Hello,</p>
     <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-bottom: 20px;">
       Use the one-time verification code below to complete your ${purpose === 'SIGNUP_VERIFICATION' ? 'registration and activate your account' : 'password reset'}:
     </p>
-
     <div style="background-color: #f0fdf4; border: 2px dashed #059669; border-radius: 12px; padding: 18px; text-align: center; margin: 20px 0;">
       <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #047857; display: block;">
         ${otp}
       </span>
     </div>
-
     <p style="font-size: 12px; line-height: 1.5; color: #64748b; margin-top: 20px; margin-bottom: 24px;">
       This verification code expires in <strong>10 minutes</strong>. Never share this code with anyone. If you did not request this, please contact <a href="mailto:${supportEmail}" style="color: #059669;">${supportEmail}</a>.
     </p>
-
     <div style="border-top: 1px solid #f1f5f9; padding-top: 16px; text-align: center; font-size: 11px; color: #94a3b8;">
       ${appName} · Official Verification Service
     </div>
   </div>
 </body>
 </html>
-    `,
-    headers: {
-      'X-Mailer': `${appName} Verification Service`,
-      'X-Priority': '1 (Highest)',
-    },
-  };
+  `;
 
-  // 2. Synchronous reliable delivery: attempt primary transport first
-  let primaryError: any = null;
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ [SMTP SUCCESS] Verification email delivered to ${cleanEmail}`);
-    return {
-      success: true,
-      message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
-    };
-  } catch (err: any) {
-    primaryError = err;
-    console.warn(`⚠️ [SMTP PRIMARY FAILED] Delivery to ${cleanEmail} failed on primary transporter: ${err?.message || err}`);
-    resetTransporterCache();
-  }
+  const textBody = `Hello,\n\nYour ${appName} ${actionTitle.toLowerCase()} is: ${otp}\n\nThis one-time code is valid for 10 minutes.\nIf you did not request this verification code, please disregard this email or contact ${supportEmail}.\n\n— ${appName} Team`;
 
-  // 3. Fallback: attempt port 465 SSL transport if Gmail credentials are provided
-  const gmailUser = process.env.GMAIL_USER?.trim();
-  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
-  if (gmailUser && gmailPass) {
+  let lastError: any = null;
+
+  // 2. Primary: Resend (HTTPS API — works on Render, Vercel, Railway, AWS — no SMTP port required)
+  if (resend) {
     try {
-      console.log(`🔄 [SMTP RETRY] Attempting port 465 SSL fallback delivery to ${cleanEmail}...`);
-      const fallbackTransporter = createTransporter(465);
-      if (fallbackTransporter) {
-        await fallbackTransporter.sendMail(mailOptions);
-        console.log(`✅ [SMTP FALLBACK SUCCESS] Verification email delivered via port 465 fallback to ${cleanEmail}`);
-        return {
-          success: true,
-          message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
-        };
-      }
-    } catch (fallbackErr: any) {
-      console.error(`❌ [SMTP FALLBACK FAILED] Fallback delivery to ${cleanEmail} failed:`, fallbackErr?.message || fallbackErr);
-      primaryError = fallbackErr;
+      const fromAddress = process.env.RESEND_FROM_ADDRESS?.trim() || senderAddress;
+      const { error } = await resend.emails.send({
+        from: `${appName} <${fromAddress}>`,
+        to: [cleanEmail],
+        subject,
+        html: htmlBody,
+        text: textBody,
+      });
+      if (error) throw new Error(error.message || JSON.stringify(error));
+      console.log(`✅ [RESEND SUCCESS] Verification email delivered to ${cleanEmail}`);
+      return {
+        success: true,
+        message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
+      };
+    } catch (resendErr: any) {
+      lastError = resendErr;
+      console.warn(`⚠️ [RESEND FAILED] Resend delivery to ${cleanEmail} failed: ${resendErr?.message || resendErr}`);
     }
   }
 
-  // If all delivery attempts failed, remove the unreceived OTP so state is not corrupted
+  // 3. Fallback: Nodemailer SMTP (port 587 then 465)
+  if (transporter) {
+    const mailOptions = {
+      from: `"${appName}" <${senderAddress}>`,
+      to: cleanEmail,
+      replyTo: senderAddress,
+      subject,
+      text: textBody,
+      html: htmlBody,
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ [SMTP SUCCESS] Verification email delivered to ${cleanEmail}`);
+      return {
+        success: true,
+        message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
+      };
+    } catch (smtpErr: any) {
+      lastError = smtpErr;
+      console.warn(`⚠️ [SMTP PORT 587 FAILED] ${smtpErr?.message || smtpErr}`);
+      resetTransporterCache();
+
+      const gmailUser = process.env.GMAIL_USER?.trim();
+      const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
+      if (gmailUser && gmailPass) {
+        try {
+          console.log(`🔄 [SMTP RETRY] Attempting port 465 SSL fallback to ${cleanEmail}...`);
+          const fallbackTransporter = createTransporter(465);
+          if (fallbackTransporter) {
+            await fallbackTransporter.sendMail(mailOptions);
+            console.log(`✅ [SMTP FALLBACK SUCCESS] Delivered via port 465 to ${cleanEmail}`);
+            return {
+              success: true,
+              message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
+            };
+          }
+        } catch (fallbackErr: any) {
+          lastError = fallbackErr;
+          console.error(`❌ [SMTP PORT 465 FAILED] ${fallbackErr?.message || fallbackErr}`);
+        }
+      }
+    }
+  }
+
+  // All delivery methods failed — clean up the orphaned OTP record
   await OtpVerification.deleteMany({ email: cleanEmail, purpose });
-  console.error(`❌ [SMTP DELIVERY FAILED] All email delivery attempts to ${cleanEmail} failed.`);
+  console.error(`❌ [EMAIL DELIVERY FAILED] All delivery methods failed for ${cleanEmail}.`);
 
   throw new Error(
-    `Failed to deliver verification email (${primaryError?.message || 'SMTP connection timeout'}). Please verify your email or contact ${supportEmail}.`
+    `Failed to deliver verification email (${lastError?.message || 'Connection timeout'}). Please verify your email or contact ${supportEmail}.`
   );
 };
+
 
 export const verifyOtp = async (
   email: string,

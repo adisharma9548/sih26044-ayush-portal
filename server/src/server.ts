@@ -49,6 +49,10 @@ import rateLimit from 'express-rate-limit';
 const app = express();
 const server = http.createServer(app);
 
+// Trust Render/Heroku/Vercel reverse proxy so express-rate-limit can identify real client IPs
+// via X-Forwarded-For header. Without this, ERR_ERL_UNEXPECTED_X_FORWARDED_FOR is thrown.
+app.set('trust proxy', 1);
+
 // 1. Security & Logging Middlewares
 app.use(
   helmet({
