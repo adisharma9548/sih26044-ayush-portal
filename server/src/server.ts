@@ -218,13 +218,19 @@ const startServer = async () => {
     await initRedis();
 
     const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
+    // Use the real public URL in production if available (Render sets RENDER_EXTERNAL_URL automatically)
+    const publicUrl =
+      process.env.RENDER_EXTERNAL_URL?.trim() ||
+      process.env.BACKEND_URL?.trim() ||
+      `http://localhost:${PORT}`;
+    const wsUrl = publicUrl.replace(/^https?:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
     server.listen(PORT, () => {
       console.log(`=======================================================`);
       console.log(`🚀 ${appName} Backend Server running on port ${PORT}`);
-      console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
-      console.log(`📧 Email Diagnostics: http://localhost:${PORT}/api/health/email`);
-      console.log(`🔗 REST API Base: http://localhost:${PORT}/api`);
-      console.log(`🔌 WebSockets: ws://localhost:${PORT}`);
+      console.log(`📡 Health Check: ${publicUrl}/api/health`);
+      console.log(`📧 Email Diagnostics: ${publicUrl}/api/health/email`);
+      console.log(`🔗 REST API Base: ${publicUrl}/api`);
+      console.log(`🔌 WebSockets: ${wsUrl}`);
       console.log(`=======================================================`);
     });
   } catch (err: any) {
