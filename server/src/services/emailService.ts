@@ -118,7 +118,42 @@ export const checkEmailConfig = async (): Promise<{
   user?: string;
   verified?: boolean;
   error?: string;
+  hint?: string;
 }> => {
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  const resend = getResendClient();
+
+  // 1. Primary Check: Resend API (HTTPS Port 443 — Cloud Safe on Render/Vercel/Railway)
+  if (resendApiKey && resend) {
+    try {
+      const { error } = await resend.apiKeys.list();
+      if (!error) {
+        return {
+          configured: true,
+          provider: 'Resend Email API (HTTPS Port 443 — Cloud Safe)',
+          user: `${resendApiKey.substring(0, 6)}...`,
+          verified: true,
+        };
+      } else {
+        return {
+          configured: true,
+          provider: 'Resend Email API',
+          verified: false,
+          error: `Resend API Error: ${error.message || JSON.stringify(error)}`,
+          hint: 'Please check that RESEND_API_KEY is correctly copied into Render Environment variables.',
+        };
+      }
+    } catch (resendErr: any) {
+      return {
+        configured: true,
+        provider: 'Resend Email API',
+        verified: false,
+        error: `Resend connectivity error: ${resendErr?.message || resendErr}`,
+      };
+    }
+  }
+
+  // 2. Secondary Check: Nodemailer SMTP
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
   const smtpHost = process.env.SMTP_HOST?.trim();
@@ -126,7 +161,8 @@ export const checkEmailConfig = async (): Promise<{
   if (!gmailUser && !smtpHost) {
     return {
       configured: false,
-      error: 'Neither GMAIL_USER/GMAIL_APP_PASSWORD nor SMTP credentials configured in environment variables.',
+      error: 'No email service configured. Set RESEND_API_KEY or GMAIL_USER/GMAIL_APP_PASSWORD in Render Environment variables.',
+      hint: 'Get a free API key in 1 minute from https://resend.com and add RESEND_API_KEY to Render.',
     };
   }
 
@@ -171,9 +207,10 @@ export const checkEmailConfig = async (): Promise<{
       } catch (fallbackErr: any) {
         return {
           configured: true,
-          provider: 'Gmail SMTP',
+          provider: 'Gmail SMTP (Blocked by Render outbound firewall)',
           verified: false,
           error: `Port 587: ${verifyErr.message || verifyErr}; Port 465: ${fallbackErr.message || fallbackErr}`,
+          hint: 'Render free tier blocks outbound SMTP ports 587 and 465. To send emails from Render, add RESEND_API_KEY (from https://resend.com) to your Render Environment variables.',
         };
       }
     }
