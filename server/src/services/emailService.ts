@@ -1,3 +1,8 @@
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
+
 import nodemailer from 'nodemailer';
 import { OtpVerification } from '../models/OtpVerification';
 
@@ -26,12 +31,13 @@ export const createTransporter = (): nodemailer.Transporter | null => {
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
 
   if (gmailUser && gmailPass) {
-    // Port 587 STARTTLS with connection pooling avoids port 465 cloud timeouts on Render
+    // Port 587 STARTTLS with family:4 (IPv4) avoids IPv6 ENETUNREACH and port 465 timeouts on cloud hosts
     cachedTransporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
       secure: false, // Port 587 uses STARTTLS
       requireTLS: true,
+      family: 4, // CRITICAL: Force IPv4 (fixes connect ENETUNREACH 2607:f8b0:...)
       pool: true,
       maxConnections: 3,
       maxMessages: 100,
@@ -43,16 +49,17 @@ export const createTransporter = (): nodemailer.Transporter | null => {
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2',
       },
-      connectionTimeout: 4000,
-      greetingTimeout: 4000,
-      socketTimeout: 6000,
-    });
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 7000,
+    } as any);
     return cachedTransporter;
   } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     cachedTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST.trim(),
       port: parseInt(process.env.SMTP_PORT || '587', 10),
       secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+      family: 4, // Force IPv4
       pool: true,
       auth: {
         user: process.env.SMTP_USER?.trim(),
@@ -61,10 +68,10 @@ export const createTransporter = (): nodemailer.Transporter | null => {
       tls: {
         rejectUnauthorized: false,
       },
-      connectionTimeout: 4000,
-      greetingTimeout: 4000,
-      socketTimeout: 6000,
-    });
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 7000,
+    } as any);
     return cachedTransporter;
   }
 
@@ -228,12 +235,16 @@ export const sendOtpEmail = async (
       if (gmailUser && gmailPass) {
         try {
           const fallback = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            family: 4, // Force IPv4
             auth: { user: gmailUser, pass: gmailPass },
-            connectionTimeout: 4000,
-          });
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 5000,
+          } as any);
           await fallback.sendMail(mailOptions);
-          console.log(`✅ [SMTP FALLBACK SUCCESS] Verification email delivered via service fallback to ${cleanEmail}`);
+          console.log(`✅ [SMTP FALLBACK SUCCESS] Verification email delivered via IPv4 fallback to ${cleanEmail}`);
         } catch (fallbackErr: any) {
           console.error('❌ [SMTP ERROR] Delivery completely failed:', fallbackErr?.message || fallbackErr);
         }
