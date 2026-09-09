@@ -4,7 +4,7 @@ import { User, IUser } from '../models/User';
 import { SkillProfile } from '../models/SkillProfile';
 import { Portfolio } from '../models/Portfolio';
 import { OtpVerification } from '../models/OtpVerification';
-import { sendOtpEmail, verifyOtp } from '../services/emailService';
+import { sendOtpEmail, verifyOtp, consumeOtp } from '../services/emailService';
 import { AuthRequest, getJwtSecret } from '../middleware/auth';
 import { recordAuditLog } from '../services/auditService';
 
@@ -25,9 +25,10 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const cleanId = email.toLowerCase().trim();
+    const configuredAdminEmail = (process.env.ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || 'admin@skillbridge.gov.in').toLowerCase().trim();
     let query: any = { email: cleanId };
-    if (cleanId === 'admin') {
-      query = { $or: [{ email: 'admin' }, { email: 'admin@skillbridge.gov.in' }, { role: 'admin' }] };
+    if (cleanId === 'admin' || cleanId === configuredAdminEmail) {
+      query = { $or: [{ email: 'admin' }, { email: configuredAdminEmail }, { role: 'admin' }] };
     }
 
     const user: any = await User.findOne(query).select('+password');
@@ -160,11 +161,12 @@ export const sendRegistrationOtp = async (req: Request, res: Response) => {
       if (companyName) {
         const compClean = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
         const domClean = domain.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const supportEmail = process.env.SUPPORT_EMAIL?.trim() || 'support@ayushportal.in';
         if (!domClean.includes(compClean) && !compClean.includes(domClean)) {
           return res.status(400).json({
             error: {
               code: 'COMPANY_DOMAIN_MISMATCH',
-              message: `The company name "${companyName}" does not match your corporate email domain "@${domain}". Please check your company name, use your official company work email, or contact support@skillbridge.gov.in.`,
+              message: `The company name "${companyName}" does not match your corporate email domain "@${domain}". Please check your company name, use your official company work email, or contact ${supportEmail}.`,
             },
           });
         }
@@ -181,6 +183,47 @@ export const sendRegistrationOtp = async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: { code: 'OTP_ERROR', message: err.message } });
   }
+};
+
+export const resolveDomainFromUserContext = (params: {
+  ayushDomain?: string;
+  academicField?: string;
+  degree?: string;
+  specialization?: string;
+  department?: string;
+  industry?: string;
+}): string => {
+  if (params.ayushDomain && params.ayushDomain.trim()) {
+    return params.ayushDomain.trim();
+  }
+  if (params.academicField && params.academicField.trim()) {
+    return params.academicField.trim();
+  }
+
+  const deg = (params.degree || '').toLowerCase();
+  const spec = (params.specialization || '').toLowerCase();
+  const dept = (params.department || '').toLowerCase();
+  const combined = `${deg} ${spec} ${dept}`;
+
+  if (combined.includes('ayur') || combined.includes('bams')) return 'Ayurveda';
+  if (combined.includes('yoga') || combined.includes('naturopath') || combined.includes('bnys')) return 'Yoga & Naturopathy';
+  if (combined.includes('unani') || combined.includes('bums')) return 'Unani';
+  if (combined.includes('siddha') || combined.includes('bsms')) return 'Siddha';
+  if (combined.includes('homeo') || combined.includes('homoeo') || combined.includes('bhms')) return 'Homoeopathy';
+  if (combined.includes('pharm') || combined.includes('b.pharm') || combined.includes('m.pharm')) return 'Pharmacy & Pharmaceutical Sciences';
+  if (combined.includes('mbbs') || combined.includes('bds') || combined.includes('nurs') || combined.includes('medic')) return 'Medical & Health Sciences';
+  if (combined.includes('tech') || combined.includes('eng') || combined.includes('b.e.') || combined.includes('m.e.')) return 'Engineering & Technology';
+  if (combined.includes('comput') || combined.includes('bca') || combined.includes('mca') || combined.includes('data') || combined.includes('ai') || combined.includes('it')) return 'Computer Science & Information Technology';
+  if (combined.includes('manage') || combined.includes('mba') || combined.includes('bba') || combined.includes('business')) return 'Management & Business Studies';
+  if (combined.includes('biotech') || combined.includes('bioinfo')) return 'Biotechnology & Bioinformatics';
+  if (combined.includes('scien') || combined.includes('b.sc') || combined.includes('m.sc')) return 'Applied Sciences';
+
+  if (params.department && params.department.trim()) return params.department.trim();
+  if (params.specialization && params.specialization.trim()) return params.specialization.trim();
+  if (params.industry && params.industry.trim()) return params.industry.trim();
+  if (params.degree && params.degree.trim()) return params.degree.trim();
+
+  return 'General & Interdisciplinary Studies';
 };
 
 export const signup = async (req: Request, res: Response) => {
@@ -209,6 +252,15 @@ export const signup = async (req: Request, res: Response) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 6 characters long.' } });
+    }
+
+    // OWASP A01 / API3: Prevent privilege escalation / mass assignment to admin
+    if (role === 'admin') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Administrator accounts cannot be registered publicly.' } });
+    }
 
     // 1. Student & Academician institutional email check (.edu.in / .ac.in)
     if (role === 'student' || role === 'academician') {
@@ -258,47 +310,49 @@ export const signup = async (req: Request, res: Response) => {
       if (activeCompanyName) {
         const compClean = activeCompanyName.toLowerCase().replace(/[^a-z0-9]/g, '');
         const domClean = domain.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        const supportEmail = process.env.SUPPORT_EMAIL?.trim() || 'support@ayushportal.in';
         if (!domClean.includes(compClean) && !compClean.includes(domClean)) {
           return res.status(400).json({
             error: {
               code: 'COMPANY_DOMAIN_MISMATCH',
-              message: `The company name "${activeCompanyName}" does not match your corporate email domain "@${domain}". Please check your company name, use your official company work email, or contact support@skillbridge.gov.in.`,
+              message: `The company name "${activeCompanyName}" does not match your corporate email domain "@${domain}". Please check your company name, use your official company work email, or contact ${supportEmail}.`,
             },
           });
         }
       }
     }
 
-    // 4. Verify OTP
+    // 4. Check if user already exists BEFORE verifying/consuming OTP
+    const existing: any = await User.findOne({ email: cleanEmail });
+    if (existing) {
+      return res.status(409).json({ error: { code: 'USER_EXISTS', message: 'An account with this email address already exists' } });
+    }
+
+    // 5. Verify OTP (do not delete yet so accidental errors don't invalidate user's code)
     if (!otp) {
       return res.status(400).json({
         error: { code: 'OTP_REQUIRED', message: 'Verification OTP is required to activate your account.' },
       });
     }
 
-    const isOtpValid = await verifyOtp(cleanEmail, otp.trim(), 'SIGNUP_VERIFICATION');
+    const isOtpValid = await verifyOtp(cleanEmail, otp.trim(), 'SIGNUP_VERIFICATION', false);
     if (!isOtpValid) {
       return res.status(400).json({
         error: { code: 'INVALID_OTP', message: 'Invalid or expired 6-digit verification code. Please check your email.' },
       });
     }
 
-    const existing: any = await User.findOne({ email: cleanEmail });
-    if (existing) {
-      return res.status(409).json({ error: { code: 'USER_EXISTS', message: 'An account with this email address already exists' } });
-    }
-
-    // OWASP A01 / API3: Prevent privilege escalation / mass assignment to admin
-    if (role === 'admin') {
-      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Administrator accounts cannot be registered publicly.' } });
-    }
-
-    if (typeof password !== 'string' || password.length < 8) {
-      return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters long.' } });
-    }
-
     const allowedRoles = ['student', 'jobseeker', 'industry', 'academician'];
     const effectiveRole = allowedRoles.includes(role) ? role : 'student';
+
+    const resolvedDomain = resolveDomainFromUserContext({
+      ayushDomain,
+      academicField,
+      degree,
+      specialization,
+      department,
+      industry,
+    });
 
     const user: any = new User({
       name: name.trim(),
@@ -313,7 +367,7 @@ export const signup = async (req: Request, res: Response) => {
       designation,
       industry,
       graduationYear: graduationYear ? Number(graduationYear) : undefined,
-      ayushDomain: ayushDomain || '',
+      ayushDomain: resolvedDomain,
       facultyId: facultyId?.trim(),
       loginCount: 1,
       lastLoginAt: new Date(),
@@ -322,6 +376,9 @@ export const signup = async (req: Request, res: Response) => {
     });
 
     await user.save();
+
+    // Consume the OTP only after user successfully saved to prevent code loss on validation errors
+    await consumeOtp(cleanEmail, 'SIGNUP_VERIFICATION');
 
     // Auto-create empty initial skill profile for student or job seeker
     if (user.role === 'student' || user.role === 'jobseeker') {

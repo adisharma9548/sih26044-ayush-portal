@@ -131,6 +131,7 @@ initSocketIO(server);
 
 // 4. Health Check & Root Endpoints (Handles GET & HEAD for Render health checks and uptime probes)
 const handleHealthCheck = (_req: express.Request, res: express.Response) => {
+  const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
   const dbState = mongoose.connection.readyState;
   const dbStatus =
     dbState === 1 ? 'connected' :
@@ -139,14 +140,15 @@ const handleHealthCheck = (_req: express.Request, res: express.Response) => {
 
   res.status(200).json({
     status: 'ok',
-    service: 'SIH26044-Ayush-Portal-Backend',
-    message: 'SIH26044 Ayush Portal Backend API is running.',
+    service: `${appName} Backend API`,
+    message: `${appName} Backend API is running.`,
     database: dbStatus,
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
+      emailHealth: '/api/health/email',
       apiBase: '/api',
     },
   });
@@ -171,7 +173,7 @@ app.use((req, res) => {
 // 7. Centralized Error Handler
 app.use(errorHandler);
 
-// 6. Connect Database & Start Server
+// 8. Connect Database & Start Server
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -179,10 +181,12 @@ const startServer = async () => {
     await connectDB();
     await initRedis();
 
+    const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
     server.listen(PORT, () => {
       console.log(`=======================================================`);
-      console.log(`🚀 SIH26044 Backend Server running on port ${PORT}`);
+      console.log(`🚀 ${appName} Backend Server running on port ${PORT}`);
       console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
+      console.log(`📧 Email Diagnostics: http://localhost:${PORT}/api/health/email`);
       console.log(`🔗 REST API Base: http://localhost:${PORT}/api`);
       console.log(`🔌 WebSockets: ws://localhost:${PORT}`);
       console.log(`=======================================================`);

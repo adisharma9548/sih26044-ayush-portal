@@ -568,6 +568,13 @@ export const SignupPage: React.FC = () => {
                 <strong className="text-slate-900">{formData.email}</strong>.
               </p>
 
+              {formError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-start gap-2">
                 <Mail className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
@@ -583,10 +590,47 @@ export const SignupPage: React.FC = () => {
                   type="text"
                   maxLength={6}
                   value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => {
+                    setOtpCode(e.target.value.replace(/\D/g, ''));
+                    setFormError(null);
+                  }}
                   placeholder="e.g. 123456"
                   className="w-full text-center tracking-[0.4em] font-mono text-xl py-3 px-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
+              </div>
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  disabled={isSendingOtp}
+                  onClick={async () => {
+                    setFormError(null);
+                    setIsSendingOtp(true);
+                    try {
+                      await api.auth.sendOtp({
+                        email: formData.email.trim(),
+                        role,
+                        companyName: formData.institution,
+                        facultyId: formData.facultyId,
+                      });
+                      setOtpCode('');
+                    } catch (err: any) {
+                      setFormError(err.message || 'Failed to resend verification OTP.');
+                    } finally {
+                      setIsSendingOtp(false);
+                    }
+                  }}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  {isSendingOtp ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Resending OTP...</span>
+                    </>
+                  ) : (
+                    <span>Didn't receive code? Click to Resend OTP</span>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -611,7 +655,10 @@ export const SignupPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setOtpStep(false)}
+                onClick={() => {
+                  setOtpStep(false);
+                  setFormError(null);
+                }}
                 className="text-xs text-slate-500 hover:text-slate-700 py-1"
               >
                 Back to Registration Form

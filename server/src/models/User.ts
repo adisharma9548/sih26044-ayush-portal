@@ -83,8 +83,7 @@ const UserSchema: Schema = new Schema(
     skills: [{ type: String }],
     ayushDomain: {
       type: String,
-      enum: ['Ayurveda', 'Yoga & Naturopathy', 'Unani', 'Siddha', 'Homoeopathy', 'Interdisciplinary', 'Technology & Engineering'],
-      default: 'Technology & Engineering',
+      default: '',
     },
     isEmailVerified: { type: Boolean, default: false },
     verified: { type: Boolean, default: true },

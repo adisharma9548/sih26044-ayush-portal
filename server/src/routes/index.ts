@@ -16,15 +16,21 @@ import mouRoutes from './mouRoutes';
 import ugcDegreeRoutes from './ugcDegreeRoutes';
 import academicHierarchyRoutes from './academicHierarchyRoutes';
 
+import { checkEmailConfig } from '../services/emailService';
+
 const router = Router();
+
+const getAppName = () => process.env.APP_NAME?.trim() || 'Ayush Portal';
 
 // API Root Info
 router.get('/', (_req, res) => {
+  const appName = getAppName();
   res.json({
     status: 'ok',
-    service: 'SIH26044-Ayush-Portal-Backend',
-    message: 'SIH26044 REST API Base',
+    service: `${appName} Backend`,
+    message: `${appName} REST API Base`,
     health: '/api/health',
+    emailHealth: '/api/health/email',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
   });
@@ -32,6 +38,7 @@ router.get('/', (_req, res) => {
 
 // Health Check Endpoint (never exposes secrets)
 router.get('/health', (_req, res) => {
+  const appName = getAppName();
   const dbState = mongoose.connection.readyState;
   const dbStatus =
     dbState === 1 ? 'connected' :
@@ -40,11 +47,22 @@ router.get('/health', (_req, res) => {
 
   res.json({
     status: 'ok',
-    service: 'SIH26044-Ayush-Portal-Backend',
+    service: `${appName} Backend`,
     timestamp: new Date().toISOString(),
     database: dbStatus,
     version: '1.0.0',
   });
+});
+
+// Email Diagnostics Endpoint (safely reports connectivity status without leaking secrets)
+router.get('/health/email', async (_req, res) => {
+  try {
+    const result = await checkEmailConfig();
+    const statusCode = result.configured && result.verified ? 200 : result.configured ? 502 : 503;
+    res.status(statusCode).json(result);
+  } catch (err: any) {
+    res.status(500).json({ configured: false, error: err?.message || 'Failed to check email configuration' });
+  }
 });
 
 // Mount Module Sub-routes

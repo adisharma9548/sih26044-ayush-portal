@@ -53,8 +53,11 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-slate-400">
               <li className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <a href="mailto:support@ayushportal.gov.in" className="hover:text-emerald-400 transition-colors">
-                  support@ayushportal.gov.in
+                <a
+                  href={`mailto:${import.meta.env.VITE_SUPPORT_EMAIL || 'support@ayushportal.in'}`}
+                  className="hover:text-emerald-400 transition-colors"
+                >
+                  {import.meta.env.VITE_SUPPORT_EMAIL || 'support@ayushportal.in'}
                 </a>
               </li>
               <li>256-bit Encrypted Token Authentication</li>
