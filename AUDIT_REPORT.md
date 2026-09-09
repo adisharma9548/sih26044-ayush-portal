@@ -1,4 +1,4 @@
-﻿# SIH26044 Forensic Audit & Architecture Remediation Report
+# SIH26044 Forensic Audit & Architecture Remediation Report
 
 **Repository**: https://github.com/adisharma9548/sih26044-ayush-portal  
 **Problem Statement**: SIH26044 — *Portal for Academia – Industry Collaboration for Skill Mapping, Internships and Placement*  
@@ -126,24 +126,25 @@ pm run build in server -> Exit code: 0 (0 errors)
 ### Environment Configuration
 
 #### Backend (server/.env):
-`env
+```env
 PORT=5000
 MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/ayush_portal?retryWrites=true&w=majority
 JWT_SECRET=your_high_entropy_32_byte_secret_here
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+CORS_ORIGINS=https://sih26044-ayush-portal.vercel.app,http://localhost:5173,http://localhost:3000
 GROQ_API_KEY=gsk_your_groq_api_key_here
 BOOTSTRAP_ADMIN_EMAIL=admin@skillbridge.gov.in
 BOOTSTRAP_ADMIN_PASSWORD=SetAStrongPassword123!
-`
+```
 
 #### Frontend (.env):
-`env
-VITE_API_URL=http://localhost:5000/api
-`
+```env
+VITE_API_URL=https://sih26044-ayush-portal.onrender.com/api
+VITE_BACKEND_URL=https://sih26044-ayush-portal.onrender.com
+```
 
 ### Running Locally
 1. **Start Backend**:
-   `ash
+   ` ash
    cd server
    npm install
    npm run dev

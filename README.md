@@ -65,16 +65,16 @@ npm run install:all
 - **Frontend (`client/`)**:
   Copy `client/.env.example` to `client/.env`:
   ```bash
-  VITE_API_URL=http://localhost:5000/api
-  VITE_BACKEND_URL=http://localhost:5000
+  VITE_API_URL=https://sih26044-ayush-portal.onrender.com/api
+  VITE_BACKEND_URL=https://sih26044-ayush-portal.onrender.com
   ```
 - **Backend (`server/`)**:
   Copy `server/.env.example` to `server/.env`:
   ```bash
   PORT=5000
-  NODE_ENV=development
-  FRONTEND_URL=http://localhost:5173
-  CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+  NODE_ENV=production
+  FRONTEND_URL=https://sih26044-ayush-portal.vercel.app
+  CORS_ORIGINS=https://sih26044-ayush-portal.vercel.app,http://localhost:5173,http://localhost:3000
   MONGODB_URI=your_mongodb_connection_string
   JWT_SECRET=your_jwt_secret_key
   ```
@@ -147,8 +147,8 @@ Because the frontend and backend are decoupled, you can deploy them easily to yo
    - `NODE_ENV`: `production`
    - `MONGODB_URI`: `mongodb+srv://...`
    - `JWT_SECRET`: A secure random secret string
-   - `FRONTEND_URL`: Your deployed client URL (e.g. `https://ayush-portal.vercel.app`)
-   - `CORS_ORIGINS`: Your deployed client URL (e.g. `https://ayush-portal.vercel.app`)
+   - `FRONTEND_URL`: `https://sih26044-ayush-portal.vercel.app`
+   - `CORS_ORIGINS`: `https://sih26044-ayush-portal.vercel.app`
 
 #### Deploying on Railway
 1. Create a new service and set **Root Directory** to `/server`.

@@ -38,9 +38,23 @@ app.use(
   })
 );
 
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-  : ['http://localhost:5173', 'http://localhost:3000'];
+const defaultOrigins = [
+  'https://sih26044-ayush-portal.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+const envOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim().replace(/\/+$/, ''))
+  : [];
+
+const frontendUrlOrigin = process.env.FRONTEND_URL
+  ? [process.env.FRONTEND_URL.trim().replace(/\/+$/, '')]
+  : [];
+
+const allowedOrigins = Array.from(
+  new Set([...defaultOrigins, ...envOrigins, ...frontendUrlOrigin])
+).filter(Boolean);
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -49,7 +63,13 @@ app.use(
     origin: (origin, callback) => {
       // Allow non-browser requests (mobile, server-to-server, health check probes)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || (!isProd && allowedOrigins.includes('*'))) {
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+      if (
+        allowedOrigins.includes(normalizedOrigin) ||
+        allowedOrigins.includes('*') ||
+        !isProd ||
+        normalizedOrigin.endsWith('.vercel.app')
+      ) {
         callback(null, true);
       } else {
         if (isProd) {

@@ -20,7 +20,8 @@ import {
   AcademicValidationResult,
 } from '../types';
 
-const BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+const rawApiUrl = (import.meta as any).env?.VITE_API_URL || 'https://sih26044-ayush-portal.onrender.com/api';
+const BASE_URL = rawApiUrl.replace(/\/+$/, '');
 
 // Production request wrapper with real backend enforcement and HTTP status propagation
 async function apiRequest<T>(
@@ -29,7 +30,8 @@ async function apiRequest<T>(
 ): Promise<{ data: T }> {
   const token = localStorage.getItem('ayush_portal_token');
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  // 45-second timeout to allow for Render free-tier cold starts
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   try {
     const res = await fetch(`${BASE_URL}${endpoint}`, {
@@ -53,7 +55,7 @@ async function apiRequest<T>(
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      const timeoutErr = new Error('Request timed out. Please verify backend is running on port 5000.');
+      const timeoutErr = new Error('Request timed out. Please verify backend server is awake and reachable.');
       (timeoutErr as any).status = 408;
       throw timeoutErr;
     }
@@ -78,7 +80,7 @@ export const authService = {
       if (err.message && err.message !== 'Failed to fetch') {
         throw err;
       }
-      throw new Error('Unable to reach backend server. Please verify backend is running on port 5000.');
+      throw new Error('Unable to reach backend server. Please verify the backend is running and reachable.');
     }
   },
 
@@ -154,7 +156,7 @@ export const authService = {
       return data;
     } catch (err: any) {
       if (err.status) throw err;
-      const netErr = new Error('Unable to reach backend server. Please verify backend is running on port 5000.');
+      const netErr = new Error('Unable to reach backend server. Please verify the backend is running and reachable.');
       (netErr as any).status = 503;
       throw netErr;
     }

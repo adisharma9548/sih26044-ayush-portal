@@ -345,7 +345,7 @@ export const getCourseCertificate = async (req: Request, res: Response) => {
         completedAt: progress.completedAt,
         verified: true,
         issuer: 'National Directorate for Academia-Industry Skill Bridge (SIH26044)',
-        verificationUrl: `http://localhost:5173/verify/${progress.certificateId}`,
+        verificationUrl: `${(process.env.FRONTEND_URL || 'https://sih26044-ayush-portal.vercel.app').replace(/\/+$/, '')}/verify/${progress.certificateId}`,
       },
     });
   } catch (err: any) {

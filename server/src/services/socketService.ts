@@ -8,13 +8,40 @@ let io: SocketIOServer | null = null;
 const userSocketMap = new Map<string, string[]>(); // userId -> socketId[]
 
 export const initSocketIO = (httpServer: HTTPServer) => {
-  const allowedOrigins = process.env.CORS_ORIGINS
-    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-    : ['http://localhost:5173', 'http://localhost:3000'];
+  const defaultOrigins = [
+    'https://sih26044-ayush-portal.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ];
+
+  const envOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim().replace(/\/+$/, ''))
+    : [];
+
+  const frontendUrlOrigin = process.env.FRONTEND_URL
+    ? [process.env.FRONTEND_URL.trim().replace(/\/+$/, '')]
+    : [];
+
+  const allowedOrigins = Array.from(
+    new Set([...defaultOrigins, ...envOrigins, ...frontendUrlOrigin])
+  ).filter(Boolean);
 
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: allowedOrigins,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const normalizedOrigin = origin.replace(/\/+$/, '');
+        if (
+          allowedOrigins.includes(normalizedOrigin) ||
+          allowedOrigins.includes('*') ||
+          process.env.NODE_ENV !== 'production' ||
+          normalizedOrigin.endsWith('.vercel.app')
+        ) {
+          callback(null, true);
+        } else {
+          callback(new Error(`Socket CORS blocked for origin: ${origin}`));
+        }
+      },
       methods: ['GET', 'POST', 'PATCH'],
       credentials: true,
     },
