@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import authRoutes from './authRoutes';
 import userRoutes from './userRoutes';
@@ -23,7 +23,7 @@ const router = Router();
 const getAppName = () => process.env.APP_NAME?.trim() || 'Ayush Portal';
 
 // API Root Info
-router.get('/', (_req, res) => {
+router.get('/', (_req: Request, res: Response) => {
   const appName = getAppName();
   res.json({
     status: 'ok',
@@ -37,7 +37,7 @@ router.get('/', (_req, res) => {
 });
 
 // Health Check Endpoint (never exposes secrets)
-router.get('/health', (_req, res) => {
+router.get('/health', (_req: Request, res: Response) => {
   const appName = getAppName();
   const dbState = mongoose.connection.readyState;
   const dbStatus =
@@ -55,7 +55,7 @@ router.get('/health', (_req, res) => {
 });
 
 // Email Diagnostics Endpoint (safely reports connectivity status without leaking secrets)
-router.get('/health/email', async (_req, res) => {
+router.get('/health/email', async (_req: Request, res: Response) => {
   try {
     const result = await checkEmailConfig();
     const statusCode = result.configured && result.verified ? 200 : result.configured ? 502 : 503;

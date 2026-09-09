@@ -155,13 +155,15 @@ const handleHealthCheck = (_req: express.Request, res: express.Response) => {
 };
 
 app.get(['/', '/health'], handleHealthCheck);
-app.head(['/', '/health'], (_req, res) => res.status(200).end());
+app.head(['/', '/health'], (_req: express.Request, res: express.Response) => {
+  res.status(200).end();
+});
 
 // 5. Mount Master API Routes
 app.use('/api', apiRouter);
 
 // 6. 404 Handler for undefined routes
-app.use((req, res) => {
+app.use((req: express.Request, res: express.Response) => {
   res.status(404).json({
     error: {
       code: 'NOT_FOUND',
