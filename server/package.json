@@ -4,7 +4,7 @@
   "description": "Production-ready backend for SIH26044 Ayush Portal",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "node -e \"if(process.env.NODE_ENV==='production'){require('./dist/server.js')}else{require('child_process').spawnSync('ts-node-dev',['--respawn','--transpile-only','src/server.ts'],{stdio:'inherit',shell:true})}\"",
+    "dev": "node dist/server.js",
     "dev:watch": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",

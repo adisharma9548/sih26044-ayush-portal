@@ -1,0 +1,9 @@
+﻿services:
+  - type: web
+    name: sih26044-backend
+    runtime: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
