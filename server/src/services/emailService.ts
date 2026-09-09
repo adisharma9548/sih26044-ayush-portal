@@ -31,6 +31,48 @@ const getResendClient = (): Resend | null => {
   return resendClient;
 };
 
+const sendBrevoEmail = async ({
+  to,
+  subject,
+  html,
+  text,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<boolean> => {
+  const brevoKey = process.env.BREVO_API_KEY?.trim();
+  if (!brevoKey) return false;
+
+  const { appName, supportEmail } = getEmailConfig();
+  const fromEmail = process.env.BREVO_SENDER_EMAIL?.trim() || process.env.GMAIL_USER?.trim() || 'adisharma9548@gmail.com';
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': brevoKey,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: appName, email: fromEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+      replyTo: { email: supportEmail },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Brevo HTTP Error (${response.status}): ${errorText}`);
+  }
+
+  return true;
+};
+
 export const generateOtp = (): string => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -150,6 +192,38 @@ export const checkEmailConfig = async (): Promise<{
         provider: 'Resend Email API',
         verified: false,
         error: `Resend connectivity error: ${resendErr?.message || resendErr}`,
+      };
+    }
+  }
+
+  // 1b. Brevo Email API Check (HTTPS Port 443 — Cloud Safe)
+  const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+  if (brevoApiKey) {
+    try {
+      const res = await fetch('https://api.brevo.com/v3/account', {
+        headers: { 'api-key': brevoApiKey },
+      });
+      if (res.ok) {
+        return {
+          configured: true,
+          provider: 'Brevo Email API (HTTPS Port 443 — Cloud Safe)',
+          verified: true,
+        };
+      } else {
+        const errText = await res.text();
+        return {
+          configured: true,
+          provider: 'Brevo Email API',
+          verified: false,
+          error: `Brevo API error (${res.status}): ${errText}`,
+        };
+      }
+    } catch (brevoErr: any) {
+      return {
+        configured: true,
+        provider: 'Brevo Email API',
+        verified: false,
+        error: `Brevo connection error: ${brevoErr?.message || brevoErr}`,
       };
     }
   }
@@ -327,6 +401,26 @@ export const sendOtpEmail = async (
     } catch (resendErr: any) {
       lastError = resendErr;
       console.warn(`⚠️ [RESEND FAILED] Resend delivery to ${cleanEmail} failed: ${resendErr?.message || resendErr}`);
+    }
+  }
+
+  // 2b. Secondary: Brevo HTTPS API (Works on Render/Vercel/Railway without domain restrictions)
+  if (process.env.BREVO_API_KEY?.trim()) {
+    try {
+      await sendBrevoEmail({
+        to: cleanEmail,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      });
+      console.log(`✅ [BREVO SUCCESS] Verification email delivered to ${cleanEmail}`);
+      return {
+        success: true,
+        message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
+      };
+    } catch (brevoErr: any) {
+      lastError = brevoErr;
+      console.warn(`⚠️ [BREVO FAILED] Brevo delivery to ${cleanEmail} failed: ${brevoErr?.message || brevoErr}`);
     }
   }
 
