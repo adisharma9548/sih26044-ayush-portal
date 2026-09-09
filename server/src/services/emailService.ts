@@ -18,6 +18,7 @@ try {
   }
 } catch {}
 
+import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import { OtpVerification } from '../models/OtpVerification';
@@ -31,8 +32,9 @@ const getResendClient = (): Resend | null => {
   return resendClient;
 };
 
+// OWASP A02: Cryptographically secure pseudorandom number generator (CSPRNG)
 export const generateOtp = (): string => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 };
 
 const getEmailConfig = () => {
@@ -407,7 +409,14 @@ export const verifyOtp = async (
     throw new Error('Too many invalid attempts. Please request a new OTP.');
   }
 
-  if (record.otp !== inputOtp.trim()) {
+  // OWASP A02 / A07: Timing-safe comparison to prevent timing side-channel attacks
+  const recordBuf = Buffer.from(record.otp);
+  const inputBuf = Buffer.from(inputOtp.trim());
+  const isMatch =
+    recordBuf.length === inputBuf.length &&
+    crypto.timingSafeEqual(recordBuf, inputBuf);
+
+  if (!isMatch) {
     record.attempts += 1;
     await record.save();
     return false;

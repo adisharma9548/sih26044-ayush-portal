@@ -30,6 +30,10 @@ export const getMyApplications = async (req: AuthRequest, res: Response) => {
   }
 };
 
+const escapeRegex = (str: string): string => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 export const getCompanyApplicants = async (req: Request, res: Response) => {
   try {
     const { companyName, employerId } = req.query;
@@ -49,9 +53,10 @@ export const getCompanyApplicants = async (req: Request, res: Response) => {
     }
 
     if (currentCompany && currentCompany !== 'undefined') {
-      queryConditions.push({ companyName: { $regex: currentCompany.toString(), $options: 'i' } });
+      const safeCompanyPattern = escapeRegex(currentCompany.toString().trim());
+      queryConditions.push({ companyName: { $regex: safeCompanyPattern, $options: 'i' } });
       const compOpportunities = await Opportunity.find({
-        company: { $regex: currentCompany.toString(), $options: 'i' }
+        company: { $regex: safeCompanyPattern, $options: 'i' }
       }).select('_id').lean();
       if (compOpportunities.length > 0) {
         const oppIds = compOpportunities.map((o: any) => o._id.toString());

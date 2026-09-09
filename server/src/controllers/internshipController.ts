@@ -107,6 +107,14 @@ export const applyInternship = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { userId, studentName, studentEmail, coverNote } = req.body;
 
+    // OWASP A01: Enforce that application is bound to the authenticated user (prevent identity spoofing)
+    const authUser = (req as any).user;
+    const effectiveUserId = authUser ? authUser._id.toString() : userId;
+
+    if (!effectiveUserId) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required to apply' } });
+    }
+
     if (!mongoose.isValidObjectId(id)) {
       return res.status(404).json({ error: { code: 'OPPORTUNITY_NOT_FOUND', message: 'Internship not found' } });
     }
@@ -117,7 +125,7 @@ export const applyInternship = async (req: Request, res: Response) => {
     }
 
     // Check for existing application
-    const existing = await Application.findOne({ userId, opportunityId: opportunity._id.toString() });
+    const existing = await Application.findOne({ userId: effectiveUserId, opportunityId: opportunity._id.toString() });
     if (existing) {
       const formattedExisting = {
         ...existing.toObject(),
@@ -127,19 +135,16 @@ export const applyInternship = async (req: Request, res: Response) => {
     }
 
     // Fetch real applicant user details
-    let realApplicant: any = null;
-    if (mongoose.isValidObjectId(userId)) {
-      realApplicant = await User.findById(userId).lean();
-    }
-    if (!realApplicant) {
-      realApplicant = await User.findOne({ _id: userId }).lean();
+    let realApplicant: any = authUser || null;
+    if (!realApplicant && mongoose.isValidObjectId(effectiveUserId)) {
+      realApplicant = await User.findById(effectiveUserId).lean();
     }
 
     // Calculate explainable compatibility match
-    const matchResult = await calculateCandidateOpportunityMatch(userId, opportunity);
+    const matchResult = await calculateCandidateOpportunityMatch(effectiveUserId, opportunity);
 
     const application = new Application({
-      userId,
+      userId: effectiveUserId,
       employerId: opportunity.postedBy ? opportunity.postedBy.toString() : undefined,
       studentName: realApplicant?.name || studentName || 'Candidate',
       studentEmail: realApplicant?.email || studentEmail || '',

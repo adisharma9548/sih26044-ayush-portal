@@ -60,8 +60,17 @@ app.use(
     crossOriginEmbedderPolicy: false,
     xContentTypeOptions: true,
     xFrameOptions: { action: 'sameorigin' },
+    // OWASP A05: Enforce HTTPS via HSTS, hide Express fingerprinting, strict referrer policy
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    dnsPrefetchControl: { allow: false },
   })
 );
+app.disable('x-powered-by');
 
 const defaultOrigins = [
   'https://sih26044-ayush-portal.vercel.app',
@@ -89,16 +98,21 @@ app.use(
       // Allow non-browser requests (mobile, server-to-server, health check probes)
       if (!origin) return callback(null, true);
       const normalizedOrigin = origin.replace(/\/+$/, '');
+
+      // OWASP A01 / A05: Strictly allow this specific project's Vercel domains (including previews), not all Vercel apps
+      const isOfficialVercelDeployment =
+        normalizedOrigin === 'https://sih26044-ayush-portal.vercel.app' ||
+        /^https:\/\/sih26044-ayush-portal(-[a-zA-Z0-9_-]+)?\.vercel\.app$/.test(normalizedOrigin);
+
       if (
         allowedOrigins.includes(normalizedOrigin) ||
-        allowedOrigins.includes('*') ||
-        !isProd ||
-        normalizedOrigin.endsWith('.vercel.app')
+        isOfficialVercelDeployment ||
+        !isProd
       ) {
         callback(null, true);
       } else {
         if (isProd) {
-          callback(new Error(`CORS blocked for origin: ${origin}`));
+          callback(new Error(`CORS blocked for unauthorized origin: ${origin}`));
         } else {
           callback(null, true);
         }
