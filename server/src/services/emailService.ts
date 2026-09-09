@@ -3,6 +3,21 @@ try {
   dns.setDefaultResultOrder('ipv4first');
 } catch {}
 
+// Enforce IPv4 in nodemailer shared module so resolveHostname only queries and returns IPv4 addresses
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const shared = require('nodemailer/lib/shared');
+  if (shared && shared.networkInterfaces) {
+    for (const key of Object.keys(shared.networkInterfaces)) {
+      if (Array.isArray(shared.networkInterfaces[key])) {
+        shared.networkInterfaces[key] = shared.networkInterfaces[key].filter(
+          (i: any) => i.family === 'IPv4' || i.family === 4
+        );
+      }
+    }
+  }
+} catch {}
+
 import nodemailer from 'nodemailer';
 import { OtpVerification } from '../models/OtpVerification';
 
@@ -23,21 +38,23 @@ const getEmailConfig = () => {
 
 let cachedTransporter: nodemailer.Transporter | null = null;
 
-export const createTransporter = (): nodemailer.Transporter | null => {
-  if (cachedTransporter) return cachedTransporter;
+export const resetTransporterCache = (): void => {
+  cachedTransporter = null;
+};
 
+export const createTransporter = (preferPort: number = 587): nodemailer.Transporter | null => {
   const gmailUser = process.env.GMAIL_USER?.trim();
   // Strip any spaces, tabs, or hyphens often introduced when copying Google 16-character app passwords
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
 
   if (gmailUser && gmailPass) {
-    // Port 587 STARTTLS with family:4 (IPv4) avoids IPv6 ENETUNREACH and port 465 timeouts on cloud hosts
-    cachedTransporter = nodemailer.createTransport({
+    const isSsl = preferPort === 465;
+    return nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // Port 587 uses STARTTLS
-      requireTLS: true,
-      family: 4, // CRITICAL: Force IPv4 (fixes connect ENETUNREACH 2607:f8b0:...)
+      port: preferPort,
+      secure: isSsl, // Port 465 is SSL, Port 587 is STARTTLS
+      requireTLS: !isSsl,
+      family: 4, // Explicit IPv4
       pool: true,
       maxConnections: 3,
       maxMessages: 100,
@@ -48,18 +65,19 @@ export const createTransporter = (): nodemailer.Transporter | null => {
       tls: {
         rejectUnauthorized: false,
         minVersion: 'TLSv1.2',
+        servername: 'smtp.gmail.com',
       },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 7000,
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
     } as any);
-    return cachedTransporter;
   } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    cachedTransporter = nodemailer.createTransport({
+    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    return nodemailer.createTransport({
       host: process.env.SMTP_HOST.trim(),
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
-      family: 4, // Force IPv4
+      port,
+      secure: process.env.SMTP_SECURE === 'true' || port === 465,
+      family: 4,
       pool: true,
       auth: {
         user: process.env.SMTP_USER?.trim(),
@@ -68,14 +86,20 @@ export const createTransporter = (): nodemailer.Transporter | null => {
       tls: {
         rejectUnauthorized: false,
       },
-      connectionTimeout: 5000,
-      greetingTimeout: 5000,
-      socketTimeout: 7000,
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
     } as any);
-    return cachedTransporter;
   }
 
   return null;
+};
+
+export const getTransporter = (): nodemailer.Transporter | null => {
+  if (!cachedTransporter) {
+    cachedTransporter = createTransporter(587);
+  }
+  return cachedTransporter;
 };
 
 export const checkEmailConfig = async (): Promise<{
@@ -103,7 +127,7 @@ export const checkEmailConfig = async (): Promise<{
     };
   }
 
-  const transporter = createTransporter();
+  const transporter = getTransporter();
   if (!transporter) {
     return {
       configured: false,
@@ -115,11 +139,34 @@ export const checkEmailConfig = async (): Promise<{
     await transporter.verify();
     return {
       configured: true,
-      provider: gmailUser ? 'Gmail SMTP (Port 587 STARTTLS)' : 'Custom SMTP',
+      provider: gmailUser ? 'Gmail SMTP (Port 587 STARTTLS, IPv4)' : 'Custom SMTP',
       user: gmailUser ? `${gmailUser.substring(0, 3)}***@${gmailUser.split('@')[1]}` : process.env.SMTP_USER,
       verified: true,
     };
   } catch (verifyErr: any) {
+    resetTransporterCache();
+    if (gmailUser && gmailPass) {
+      try {
+        const fallbackTransporter = createTransporter(465);
+        if (fallbackTransporter) {
+          await fallbackTransporter.verify();
+          cachedTransporter = fallbackTransporter;
+          return {
+            configured: true,
+            provider: 'Gmail SMTP (Port 465 SSL Fallback, IPv4)',
+            user: `${gmailUser.substring(0, 3)}***@${gmailUser.split('@')[1]}`,
+            verified: true,
+          };
+        }
+      } catch (fallbackErr: any) {
+        return {
+          configured: true,
+          provider: 'Gmail SMTP',
+          verified: false,
+          error: `Port 587: ${verifyErr.message || verifyErr}; Port 465: ${fallbackErr.message || fallbackErr}`,
+        };
+      }
+    }
     return {
       configured: true,
       provider: gmailUser ? 'Gmail SMTP' : 'Custom SMTP',
@@ -137,7 +184,7 @@ export const sendOtpEmail = async (
   const otp = generateOtp();
   const { appName, supportEmail, senderAddress } = getEmailConfig();
 
-  const transporter = createTransporter();
+  const transporter = getTransporter();
   if (!transporter) {
     console.error(
       `❌ [SMTP CONFIG ERROR] Cannot deliver verification email to ${cleanEmail}: Email credentials (GMAIL_USER & GMAIL_APP_PASSWORD, or SMTP_HOST/USER/PASS) are missing in the server environment.`
@@ -222,46 +269,49 @@ export const sendOtpEmail = async (
     },
   };
 
-  // 2. High-speed non-blocking dispatch: race delivery with a 1.5s timeout window
-  // This reduces API latency from 15+ seconds down to < 1.5 seconds (instant user feedback)
-  const dispatchPromise = (async () => {
+  // 2. Synchronous reliable delivery: attempt primary transport first
+  let primaryError: any = null;
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ [SMTP SUCCESS] Verification email delivered to ${cleanEmail}`);
+    return {
+      success: true,
+      message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
+    };
+  } catch (err: any) {
+    primaryError = err;
+    console.warn(`⚠️ [SMTP PRIMARY FAILED] Delivery to ${cleanEmail} failed on primary transporter: ${err?.message || err}`);
+    resetTransporterCache();
+  }
+
+  // 3. Fallback: attempt port 465 SSL transport if Gmail credentials are provided
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
+  if (gmailUser && gmailPass) {
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`✅ [SMTP SUCCESS] Verification email delivered to ${cleanEmail}`);
-    } catch (smtpErr: any) {
-      console.warn('⚠️ [SMTP PRIMARY FAILED] Trying service fallback:', smtpErr?.message);
-      const gmailUser = process.env.GMAIL_USER?.trim();
-      const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
-      if (gmailUser && gmailPass) {
-        try {
-          const fallback = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true,
-            family: 4, // Force IPv4
-            auth: { user: gmailUser, pass: gmailPass },
-            tls: { rejectUnauthorized: false },
-            connectionTimeout: 5000,
-          } as any);
-          await fallback.sendMail(mailOptions);
-          console.log(`✅ [SMTP FALLBACK SUCCESS] Verification email delivered via IPv4 fallback to ${cleanEmail}`);
-        } catch (fallbackErr: any) {
-          console.error('❌ [SMTP ERROR] Delivery completely failed:', fallbackErr?.message || fallbackErr);
-        }
+      console.log(`🔄 [SMTP RETRY] Attempting port 465 SSL fallback delivery to ${cleanEmail}...`);
+      const fallbackTransporter = createTransporter(465);
+      if (fallbackTransporter) {
+        await fallbackTransporter.sendMail(mailOptions);
+        console.log(`✅ [SMTP FALLBACK SUCCESS] Verification email delivered via port 465 fallback to ${cleanEmail}`);
+        return {
+          success: true,
+          message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
+        };
       }
+    } catch (fallbackErr: any) {
+      console.error(`❌ [SMTP FALLBACK FAILED] Fallback delivery to ${cleanEmail} failed:`, fallbackErr?.message || fallbackErr);
+      primaryError = fallbackErr;
     }
-  })();
+  }
 
-  const timeoutPromise = new Promise<{ timedOut: boolean }>((resolve) =>
-    setTimeout(() => resolve({ timedOut: true }), 1500)
+  // If all delivery attempts failed, remove the unreceived OTP so state is not corrupted
+  await OtpVerification.deleteMany({ email: cleanEmail, purpose });
+  console.error(`❌ [SMTP DELIVERY FAILED] All email delivery attempts to ${cleanEmail} failed.`);
+
+  throw new Error(
+    `Failed to deliver verification email (${primaryError?.message || 'SMTP connection timeout'}). Please verify your email or contact ${supportEmail}.`
   );
-
-  await Promise.race([dispatchPromise, timeoutPromise]);
-
-  return {
-    success: true,
-    message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
-  };
 };
 
 export const verifyOtp = async (

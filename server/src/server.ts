@@ -1,9 +1,22 @@
 import dns from 'dns';
 try {
   dns.setDefaultResultOrder('ipv4first');
-} catch {
-  // Safe fallback for Node versions that don't support setDefaultResultOrder
-}
+} catch {}
+
+// Enforce IPv4 in nodemailer shared module so resolveHostname only queries and returns IPv4 addresses
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const shared = require('nodemailer/lib/shared');
+  if (shared && shared.networkInterfaces) {
+    for (const key of Object.keys(shared.networkInterfaces)) {
+      if (Array.isArray(shared.networkInterfaces[key])) {
+        shared.networkInterfaces[key] = shared.networkInterfaces[key].filter(
+          (i: any) => i.family === 'IPv4' || i.family === 4
+        );
+      }
+    }
+  }
+} catch {}
 
 import dotenv from 'dotenv';
 import path from 'path';
@@ -164,6 +177,16 @@ const handleHealthCheck = (_req: express.Request, res: express.Response) => {
 app.get(['/', '/health'], handleHealthCheck);
 app.head(['/', '/health'], (_req: express.Request, res: express.Response) => {
   res.status(200).end();
+});
+app.get('/health/email', async (_req: express.Request, res: express.Response) => {
+  try {
+    const { checkEmailConfig } = await import('./services/emailService');
+    const result = await checkEmailConfig();
+    const statusCode = result.configured && result.verified ? 200 : result.configured ? 502 : 503;
+    res.status(statusCode).json(result);
+  } catch (err: any) {
+    res.status(500).json({ configured: false, error: err?.message || 'Failed to check email configuration' });
+  }
 });
 
 // 5. Mount Master API Routes
