@@ -67,9 +67,6 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
       secure: isSsl, // Port 465 is SSL, Port 587 is STARTTLS
       requireTLS: !isSsl,
       family: 4, // Explicit IPv4
-      pool: true,
-      maxConnections: 3,
-      maxMessages: 100,
       auth: {
         user: gmailUser,
         pass: gmailPass,
@@ -79,9 +76,9 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
         minVersion: 'TLSv1.2',
         servername: 'smtp.gmail.com',
       },
-      connectionTimeout: 3500,
-      greetingTimeout: 3500,
-      socketTimeout: 4000,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     } as any);
   } else if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     const port = parseInt(process.env.SMTP_PORT || '587', 10);
@@ -90,7 +87,6 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
       port,
       secure: process.env.SMTP_SECURE === 'true' || port === 465,
       family: 4,
-      pool: true,
       auth: {
         user: process.env.SMTP_USER?.trim(),
         pass: process.env.SMTP_PASS?.trim(),
@@ -98,9 +94,9 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
       tls: {
         rejectUnauthorized: false,
       },
-      connectionTimeout: 3500,
-      greetingTimeout: 3500,
-      socketTimeout: 4000,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     } as any);
   }
 
@@ -185,7 +181,7 @@ export const checkEmailConfig = async (): Promise<{
     };
   }
 
-  const verifyWithTimeout = (t: nodemailer.Transporter, timeoutMs: number = 3000): Promise<any> => {
+  const verifyWithTimeout = (t: nodemailer.Transporter, timeoutMs: number = 6000): Promise<any> => {
     return Promise.race([
       t.verify(),
       new Promise((_, reject) =>
@@ -195,7 +191,7 @@ export const checkEmailConfig = async (): Promise<{
   };
 
   try {
-    await verifyWithTimeout(transporter, 3000);
+    await verifyWithTimeout(transporter, 6000);
     return {
       configured: true,
       provider: gmailUser ? 'Gmail SMTP (Port 587 STARTTLS, IPv4)' : 'Custom SMTP',
@@ -208,7 +204,7 @@ export const checkEmailConfig = async (): Promise<{
       try {
         const fallbackTransporter = createTransporter(465);
         if (fallbackTransporter) {
-          await verifyWithTimeout(fallbackTransporter, 3000);
+          await verifyWithTimeout(fallbackTransporter, 6000);
           cachedTransporter = fallbackTransporter;
           return {
             configured: true,
@@ -322,7 +318,10 @@ export const sendOtpEmail = async (
   // 2. Primary: Resend (HTTPS API — works on Render, Vercel, Railway, AWS — no SMTP port required)
   if (resend) {
     try {
-      const fromAddress = process.env.RESEND_FROM_ADDRESS?.trim() || senderAddress;
+      const fromAddress =
+        process.env.RESEND_FROM_ADDRESS?.trim() ||
+        process.env.EMAIL_FROM_ADDRESS?.trim() ||
+        'onboarding@resend.dev';
       const { error } = await resend.emails.send({
         from: `${appName} <${fromAddress}>`,
         to: [cleanEmail],
@@ -363,7 +362,7 @@ export const sendOtpEmail = async (
       };
     } catch (smtpErr: any) {
       lastError = smtpErr;
-      console.warn(`⚠️ [SMTP PORT 587 FAILED] ${smtpErr?.message || smtpErr}`);
+      console.warn(`⚠️ [SMTP PORT 587 FAILED] ${smtpErr?.message || smtpErr} (code: ${smtpErr?.code || 'UNKNOWN'})`);
       resetTransporterCache();
 
       const gmailUser = process.env.GMAIL_USER?.trim();
@@ -382,26 +381,21 @@ export const sendOtpEmail = async (
           }
         } catch (fallbackErr: any) {
           lastError = fallbackErr;
-          console.error(`❌ [SMTP PORT 465 FAILED] ${fallbackErr?.message || fallbackErr}`);
+          console.error(`❌ [SMTP PORT 465 FAILED] ${fallbackErr?.message || fallbackErr} (code: ${fallbackErr?.code || 'UNKNOWN'})`);
         }
       }
     }
   }
 
-  // If network delivery methods timed out or were blocked by cloud host firewall:
-  // Retain the OTP in MongoDB (valid for 10 minutes) so the user is not locked out by cloud network limitations.
-  console.warn(`⚠️ [EMAIL DISPATCH RESILIENCE] Outbound SMTP port was filtered by cloud host. Retaining OTP in database.`);
-  console.log(`\n======================================================`);
-  console.log(`🔑 [PRODUCTION RESILIENCE OTP ACTIVE]`);
-  console.log(`📧 Destination: ${cleanEmail}`);
-  console.log(`🔢 OTP Code: ${otp}`);
-  console.log(`⏳ Valid in MongoDB for 10 minutes`);
-  console.log(`======================================================\n`);
+  // All delivery methods failed — clean up the orphaned OTP record and throw error
+  await OtpVerification.deleteMany({ email: cleanEmail, purpose });
+  console.error(
+    `❌ [EMAIL DELIVERY FAILED] All delivery methods failed for ${cleanEmail}. Error: ${lastError?.message || lastError}`
+  );
 
-  return {
-    success: true,
-    message: `A 6-digit verification code has been dispatched. If network delivery to ${cleanEmail} is delayed, your one-time code is valid for 10 minutes.`,
-  };
+  throw new Error(
+    `Failed to deliver verification email (${lastError?.message || 'Connection timeout'}). Please verify your email configuration or contact ${supportEmail}.`
+  );
 };
 
 

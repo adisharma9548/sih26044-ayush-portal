@@ -50,8 +50,8 @@ const app = express();
 const server = http.createServer(app);
 
 // Trust Railway/Render/Vercel reverse proxies so express-rate-limit can identify real client IPs
-// via X-Forwarded-For header. Without this, ERR_ERL_UNEXPECTED_X_FORWARDED_FOR is thrown.
-app.set('trust proxy', true);
+// via X-Forwarded-For header. Trust immediate 1 hop proxy to prevent ERR_ERL_PERMISSIVE_TRUST_PROXY.
+app.set('trust proxy', 1);
 
 // 1. Security & Logging Middlewares
 app.use(
