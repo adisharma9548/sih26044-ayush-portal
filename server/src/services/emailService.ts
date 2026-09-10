@@ -28,8 +28,8 @@ export const generateOtp = (): string => {
 };
 
 const getEmailConfig = () => {
-  const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
-  const supportEmail = process.env.SUPPORT_EMAIL?.trim() || 'support@ayushportal.in';
+  const appName = process.env.APP_NAME?.trim() || 'NodalConnector';
+  const supportEmail = process.env.SUPPORT_EMAIL?.trim() || 'support@nodalconnector.in';
   const senderAddress =
     process.env.EMAIL_FROM_ADDRESS?.trim() ||
     process.env.GMAIL_USER?.trim() ||

@@ -225,9 +225,9 @@ export const SignupPage: React.FC = () => {
             <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
               Verified Registration
             </span>
-            <span className="text-[10px] text-slate-400 font-semibold">SkillBridge National Platform</span>
+            <span className="text-[10px] text-slate-400 font-semibold">NodalConnector National Platform</span>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mt-2">Create Your SkillBridge Account</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mt-2">Create Your NodalConnector Account</h2>
           <p className="text-xs text-slate-500 mt-1">
             Sign up for university students, career job seekers, corporate recruiters, and academic faculty.
           </p>

@@ -15,5 +15,17 @@ export default defineConfig({
     allowedHosts: [
       'ocelot-moneybags-transport.ngrok-free.dev'
     ]
-  }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
+  },
 });

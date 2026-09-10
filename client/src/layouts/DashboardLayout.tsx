@@ -35,15 +35,9 @@ export const DashboardLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Authenticated Footer */}
+      {/* Minimal Footer */}
       <footer className="border-t border-slate-200 bg-white/80 py-4 px-6 text-center text-xs text-slate-500 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>© 2026 AYUSH Portal / SkillBridge (SIH26044). All rights reserved.</span>
-          <span className="text-[11px] text-emerald-600 font-medium flex items-center justify-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Authenticated Session • UGC-Aligned Academic Framework
-          </span>
-        </div>
+        <p>© 2026 NodalConnector. All rights reserved.</p>
       </footer>
     </div>
   );

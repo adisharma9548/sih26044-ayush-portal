@@ -20,7 +20,7 @@ import { checkEmailConfig } from '../services/emailService';
 
 const router = Router();
 
-const getAppName = () => process.env.APP_NAME?.trim() || 'Ayush Portal';
+const getAppName = () => process.env.APP_NAME?.trim() || 'NodalConnector';
 
 // API Root Info
 router.get('/', (_req: Request, res: Response) => {

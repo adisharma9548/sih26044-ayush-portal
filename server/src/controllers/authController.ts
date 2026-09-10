@@ -25,7 +25,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const cleanId = email.toLowerCase().trim();
-    const configuredAdminEmail = (process.env.ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || 'admin@skillbridge.gov.in').toLowerCase().trim();
+    const configuredAdminEmail = (process.env.ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || 'admin@nodalconnector.in').toLowerCase().trim();
     let query: any = { email: cleanId };
     if (cleanId === 'admin' || cleanId === configuredAdminEmail) {
       query = { $or: [{ email: 'admin' }, { email: configuredAdminEmail }, { role: 'admin' }] };

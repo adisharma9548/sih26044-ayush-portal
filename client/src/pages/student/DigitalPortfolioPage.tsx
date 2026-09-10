@@ -88,7 +88,7 @@ export const DigitalPortfolioPage: React.FC = () => {
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
               NATIONAL VERIFIED PORTFOLIO
             </span>
-            <span className="text-xs text-slate-400">SkillBridge Verified</span>
+            <span className="text-xs text-slate-400">NodalConnector Verified</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
             Digital Portfolio & Credentials
@@ -322,7 +322,7 @@ export const DigitalPortfolioPage: React.FC = () => {
               <p className="text-slate-500 mt-1">{previewCert.issuer} • {previewCert.issueDate}</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 font-mono text-[11px]">
-              Credential ID: SKILLBRIDGE-CERT-908123-VERIFIED
+              Credential ID: NODALCONNECTOR-CERT-908123-VERIFIED
             </div>
             <p className="text-slate-400">
               This credential has been verified against the National Higher Education & Skills Registry.

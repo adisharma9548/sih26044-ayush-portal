@@ -1,7 +1,7 @@
 {
-  "name": "sih26044-backend",
+  "name": "nodalconnector-backend",
   "version": "1.0.0",
-  "description": "Production-ready backend for SIH26044 Ayush Portal",
+  "description": "Production-ready backend for NodalConnector Portal",
   "main": "dist/server.js",
   "scripts": {
     "dev": "node dist/server.js",

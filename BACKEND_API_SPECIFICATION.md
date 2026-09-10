@@ -1,4 +1,4 @@
-# AYUSH-Connect Backend API Specification (SIH26044)
+# NodalConnector Backend API Specification (SIH26044)
 
 This document provides the complete API contracts, request payloads, and response JSON schemas required to build the backend (Node.js/Express, Python/FastAPI, Java/Spring Boot, etc.) for the **SIH26044 Academia–Industry Portal**.
 

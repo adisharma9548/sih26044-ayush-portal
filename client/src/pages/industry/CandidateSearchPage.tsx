@@ -143,7 +143,7 @@ export const CandidateSearchPage: React.FC = () => {
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">SkillBridge Verified</span>
+                <span className="text-[11px] text-slate-400 font-medium">NodalConnector Verified</span>
                 <button
                   onClick={() => setInvitingCandidate(c)}
                   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors flex items-center gap-1.5"

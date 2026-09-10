@@ -102,12 +102,12 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-        {/* Left Side: SkillBridge Brand & Information */}
+        {/* Left Side: NodalConnector Brand & Information */}
         <div className="md:col-span-5 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-6 sm:p-8 rounded-3xl text-white shadow-xl border border-slate-800 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-3">
               <Sparkles className="w-4 h-4" />
-              SkillBridge Portal
+              NodalConnector Portal
             </div>
             <h2 className="text-xl font-bold leading-tight">National Multi-Disciplinary Skills & Placement Platform</h2>
             <p className="text-xs text-slate-300 mt-2 mb-6 leading-relaxed">
@@ -161,7 +161,7 @@ export const LoginPage: React.FC = () => {
         <div className="md:col-span-7 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-lg">
           <div className="mb-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sign In to SkillBridge</h2>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sign In to NodalConnector</h2>
               {selectedRole === 'admin' && (
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
                   Admin Portal
@@ -238,7 +238,7 @@ export const LoginPage: React.FC = () => {
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder={
                     selectedRole === 'admin'
-                      ? 'admin or admin@skillbridge.gov.in'
+                      ? 'admin or admin@nodalconnector.in'
                       : selectedRole === 'jobseeker'
                       ? 'candidate@gmail.com'
                       : selectedRole === 'industry'

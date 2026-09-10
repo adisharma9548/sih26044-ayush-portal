@@ -57,7 +57,7 @@ const seedDatabase = async () => {
 
     // 1. Seed Pre-configured Administrator via Environment Bootstrap
     const crypto = await import('crypto');
-    const adminEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@skillbridge.gov.in').toLowerCase().trim();
+    const adminEmail = (process.env.BOOTSTRAP_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@nodalconnector.in').toLowerCase().trim();
     const adminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
     const isGeneratedPassword = !process.env.BOOTSTRAP_ADMIN_PASSWORD && !process.env.ADMIN_PASSWORD;
 
@@ -67,11 +67,11 @@ const seedDatabase = async () => {
       email: adminEmail,
       password: adminPassword,
       role: 'admin',
-      institution: 'SkillBridge National Directorate',
+      institution: 'NodalConnector National Directorate',
       department: 'Platform Administration & Security',
       designation: 'Lead Administrator',
       location: 'New Delhi, India',
-      bio: 'Administrator account for SkillBridge National Collaboration and Competency Mapping Portal.',
+      bio: 'Administrator account for NodalConnector National Collaboration and Competency Mapping Portal.',
       isEmailVerified: true,
       verified: true,
       requiresPasswordReset: true,
@@ -89,7 +89,7 @@ const seedDatabase = async () => {
       entity: 'System',
       status: 'SUCCESS',
       details: {
-        platform: 'SkillBridge National Portal',
+        platform: 'NodalConnector National Portal',
         version: '2.0.0-clean',
         environment: process.env.NODE_ENV || 'development',
         adminAccount: adminEmail,

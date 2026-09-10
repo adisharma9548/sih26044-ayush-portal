@@ -147,7 +147,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
               {/* Digital Seal */}
               <div className="text-center sm:text-right">
                 <div className="inline-block px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold">
-                  SKILLBRIDGE OFFICIAL RECORD
+                  NODALCONNECTOR OFFICIAL RECORD
                 </div>
                 <p className="text-[9px] text-slate-400 mt-1">
                   Tamper-Evident Ledger Entry • Publicly Auditable

@@ -1,4 +1,4 @@
-# AYUSH-Connect | SIH26044 Portal
+# NodalConnector | SIH26044 Portal
 
 **National Portal for Academia–Industry Collaboration for Skill Mapping, Internships and Placement in Indian Ayush & Herbal Bio-Pharma**
 

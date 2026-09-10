@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
       <div className="p-4 border-t border-slate-100 bg-slate-50/70">
         <div className="flex items-center gap-2.5">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-          <span className="text-[11px] font-medium text-slate-600">SkillBridge Connected</span>
+          <span className="text-[11px] font-medium text-slate-600">NodalConnector Connected</span>
         </div>
         <p className="text-[10px] text-slate-400 mt-1">National Placement Portal v1.0</p>
       </div>

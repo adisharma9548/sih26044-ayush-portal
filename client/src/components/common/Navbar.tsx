@@ -91,7 +91,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-lg text-slate-900 tracking-tight">SkillBridge</span>
+                  <span className="font-extrabold text-lg text-slate-900 tracking-tight">NodalConnector</span>
                   <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
                     NATIONAL
                   </span>

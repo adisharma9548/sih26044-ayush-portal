@@ -88,7 +88,7 @@ export const getCourseWorkspace = async (req: Request, res: Response) => {
       program = {
         id: id || 'course_default',
         title: 'Full-Stack Architecture & Cloud Distributed Systems',
-        provider: 'National SkillBridge Directorate',
+        provider: 'National NodalConnector Directorate',
         skillsCovered: ['Software Engineering', 'REST APIs', 'Cloud Computing', 'Data Structures & Algorithms'],
         description: 'Comprehensive technical sprint with interactive coding challenges and verification milestones.',
         duration: '4 Weeks',
@@ -192,7 +192,7 @@ function validateCandidateSubmission(candidate: { email: string; score: number }
         title: 'Milestone Assessment: Defense & Certification Unlock',
         type: 'quiz',
         estimatedMinutes: 15,
-        description: 'Final milestone: Answer the competency defense questions to verify your mastery and unlock your official National SkillBridge Certificate.',
+        description: 'Final milestone: Answer the competency defense questions to verify your mastery and unlock your official National NodalConnector Certificate.',
         content: `### 5. Final Competency Evaluation\nReview all modules completed. When you submit this final milestone with all preceding tasks checked, your verified certificate will be generated with an official QR code and logged in your National Digital Portfolio.`,
         quizQuestions: [
           {
@@ -290,7 +290,7 @@ export const updateCourseProgress = async (req: Request, res: Response) => {
 
       portfolio.certificates.push({
         title: `${progress.courseTitle} - Verified Professional Mastery`,
-        issuer: 'SkillBridge National Directorate (SIH26044)',
+        issuer: 'NodalConnector National Directorate (SIH26044)',
         issueDate: new Date().toISOString().split('T')[0],
         credentialUrl: `/verify/${progress.certificateId}`,
         verified: true,

@@ -174,7 +174,7 @@ initSocketIO(server);
 
 // 4. Health Check & Root Endpoints (Handles GET & HEAD for Render health checks and uptime probes)
 const handleHealthCheck = (_req: express.Request, res: express.Response) => {
-  const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
+  const appName = process.env.APP_NAME?.trim() || 'NodalConnector';
   const dbState = mongoose.connection.readyState;
   const dbStatus =
     dbState === 1 ? 'connected' :
@@ -248,7 +248,7 @@ const startServer = async () => {
     await connectDB();
     await initRedis();
 
-    const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
+    const appName = process.env.APP_NAME?.trim() || 'NodalConnector';
     // Use the real public URL in production if available (Railway sets RAILWAY_PUBLIC_DOMAIN, Render sets RENDER_EXTERNAL_URL)
     const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN
       ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN.trim().replace(/^https?:\/\//, '')}`
@@ -261,9 +261,9 @@ const startServer = async () => {
       : `http://localhost:${PORT}`;
     const publicUrl =
       vercelUrl ||
+      process.env.BACKEND_URL?.trim() ||
       railwayUrl ||
       process.env.RENDER_EXTERNAL_URL?.trim() ||
-      process.env.BACKEND_URL?.trim() ||
       defaultPublicUrl;
     const wsUrl = publicUrl.replace(/^https?:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
     server.listen(Number(PORT) || 5000, '0.0.0.0', () => {

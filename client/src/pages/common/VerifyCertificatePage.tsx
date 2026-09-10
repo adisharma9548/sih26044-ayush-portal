@@ -53,7 +53,7 @@ export const VerifyCertificatePage: React.FC = () => {
               <ShieldCheck className="w-6 h-6 text-emerald-400" />
               <div>
                 <h1 className="text-sm font-bold tracking-tight">
-                  National SkillBridge Credential Registry
+                  National NodalConnector Credential Registry
                 </h1>
                 <p className="text-[10px] text-slate-400">
                   Government & Industry Verification Protocol (SIH26044)

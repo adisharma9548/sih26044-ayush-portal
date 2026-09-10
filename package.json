@@ -1,8 +1,8 @@
 {
-  "name": "ayush-connect-portal",
+  "name": "nodalconnector",
   "version": "1.0.0",
   "private": true,
-  "description": "AYUSH-Connect Portal - Monorepo for Client & Server",
+  "description": "NodalConnector Portal - Monorepo for Client & Server",
   "workspaces": [
     "client",
     "server"

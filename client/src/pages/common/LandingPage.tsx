@@ -105,7 +105,7 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-5xl mx-auto text-center relative z-10 space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-xs font-semibold tracking-wide">
             <Sparkles className="w-3.5 h-3.5" />
-            SkillBridge National Competency & Career Platform
+            NodalConnector National Competency & Career Platform
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
@@ -232,7 +232,7 @@ export const LandingPage: React.FC = () => {
                 Benchmark Your Competencies Against National Industry Standards
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                SkillBridge evaluates real problem-solving ability across software systems, algorithm complexity, cloud resilience, and interdisciplinary engineering:
+                NodalConnector evaluates real problem-solving ability across software systems, algorithm complexity, cloud resilience, and interdisciplinary engineering:
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div className="flex items-start gap-2.5">

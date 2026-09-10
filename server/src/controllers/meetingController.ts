@@ -17,7 +17,7 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Title, participant email, and date are required' } });
     }
 
-    const cleanRoomId = `skillbridge-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const cleanRoomId = `nodalconnector-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
     const meetingUrl = `/meetings?room=${cleanRoomId}`;
 
     const participantUser = await User.findOne({ email: participantEmail.toLowerCase().trim() });
