@@ -6,9 +6,11 @@ client/.env
 client/.env.*
 server/.env
 server/.env.*
-!.env.example
+! .env.example
 !client/.env.example
 !server/.env.example
+!client/.env.production
+!client/.env.development
 *.pem
 *.key
 *.cert

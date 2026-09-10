@@ -20,8 +20,23 @@ import {
   AcademicValidationResult,
 } from '../types';
 
-const rawApiUrl = (import.meta as any).env?.VITE_API_URL || 'https://sih26044-ayush-portal-production.up.railway.app/api';
-const BASE_URL = rawApiUrl.replace(/\/+$/, '');
+const resolveApiBase = (): string => {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  let base: string;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    base = envUrl.trim();
+  } else if ((import.meta as any).env?.PROD) {
+    base = 'https://sih26044-ayush-portal-production.up.railway.app/api';
+  } else {
+    base = 'http://localhost:5000/api';
+  }
+  // Ensure no trailing slash
+  base = base.replace(/\/+$/, '');
+  // Guarantee base ends with /api without duplicating /api/api
+  return base.endsWith('/api') ? base : `${base}/api`;
+};
+
+const BASE_URL = resolveApiBase();
 
 // Production request wrapper with real backend enforcement and HTTP status propagation
 async function apiRequest<T>(

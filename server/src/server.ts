@@ -117,16 +117,12 @@ app.use(
       ) {
         callback(null, true);
       } else {
-        if (isProd) {
-          callback(new Error(`CORS blocked for unauthorized origin: ${origin}`));
-        } else {
-          callback(null, true);
-        }
+        callback(null, false);
       }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   })
 );
 

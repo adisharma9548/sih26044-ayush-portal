@@ -145,8 +145,14 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
         }
 
         // 2. Connect to Socket.IO signaling server
-        const rawBackendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://sih26044-ayush-portal-production.up.railway.app';
-        const backendUrl = rawBackendUrl.replace(/\/+$/, '');
+        const envBackendUrl = (import.meta as any).env?.VITE_BACKEND_URL;
+        const backendUrl = (
+          envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim()
+            ? envBackendUrl.trim()
+            : (import.meta as any).env?.PROD
+            ? 'https://sih26044-ayush-portal-production.up.railway.app'
+            : 'http://localhost:5000'
+        ).replace(/\/+$/, '').replace(/\/api$/, '');
         const socket = io(backendUrl, {
           transports: ['websocket', 'polling'],
           auth: {
