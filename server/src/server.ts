@@ -211,6 +211,18 @@ app.get('/health/email', async (_req: express.Request, res: express.Response) =>
   }
 });
 
+// Ensure MongoDB connection is established for serverless/cold-start environments (e.g. Vercel)
+app.use(async (_req, _res, next) => {
+  if (mongoose.connection.readyState === 0) {
+    try {
+      await connectDB();
+    } catch (e: any) {
+      console.error('[Serverless] DB connection error:', e.message);
+    }
+  }
+  next();
+});
+
 // 5. Mount Master API Routes
 app.use('/api', apiRouter);
 
@@ -263,8 +275,10 @@ const startServer = async () => {
   }
 };
 
-if (process.env.NODE_ENV !== 'test') {
+// Start listening only in standalone/container mode (Railway, Docker, Local)
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   startServer();
 }
 
+export default app;
 export { app, server };
