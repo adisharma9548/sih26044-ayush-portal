@@ -16,7 +16,8 @@ import {
   ArrowRight,
   TrendingUp,
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { MouProposalModal } from '../../components/common/MouProposalModal';
@@ -90,6 +91,13 @@ export const IndustryDashboard: React.FC = () => {
             >
               <Search className="w-3.5 h-3.5" />
               <span>Search Talent Pool</span>
+            </Link>
+            <Link
+              to="/industry/programs"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Manage Modules & Labs</span>
             </Link>
             <button
               onClick={() => setShowMouModal(true)}

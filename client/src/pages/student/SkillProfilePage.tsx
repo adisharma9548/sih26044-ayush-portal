@@ -44,7 +44,7 @@ export const SkillProfilePage: React.FC = () => {
             Skill Profile & Industry Gap Analysis
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Visual benchmarking of your clinical and phytochemical competencies against top Ayush employers
+            Visual benchmarking of your technical, scientific, and domain competencies against industry hiring benchmarks
           </p>
         </div>
 
@@ -64,7 +64,7 @@ export const SkillProfilePage: React.FC = () => {
           <div className="mb-4">
             <h3 className="text-base font-bold text-slate-900">Competency Radar Overlay</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Green polygon represents your level; Blue dashed line is the Ayush industry hiring benchmark.
+              Green polygon represents your level; Blue dashed line is the industry hiring benchmark.
             </p>
           </div>
 

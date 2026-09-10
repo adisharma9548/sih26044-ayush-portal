@@ -23,6 +23,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../services/api';
 import { Badge } from '../../components/common/Badge';
 import { CertificateModal } from '../../components/common/CertificateModal';
+import { LessonContentRenderer } from '../../components/common/LessonContentRenderer';
 
 interface Lesson {
   id: string;
@@ -123,8 +124,12 @@ export const CourseWorkspacePage: React.FC = () => {
   // Fetch workspace data
   useEffect(() => {
     const fetchWorkspace = async () => {
-      const cId = courseId || 'int_01';
+      const cId = courseId && courseId !== 'undefined' ? courseId : 'course_default';
       setLoading(true);
+      setActiveLessonIndex(0);
+      setConsoleOutput([]);
+      setTestPassed(false);
+      setShowCertModal(false);
       try {
         const res = await api.learning.getWorkspace(cId);
         if (res.data) {
@@ -224,7 +229,7 @@ export const CourseWorkspacePage: React.FC = () => {
 
   // Mark lesson complete
   const markLessonComplete = async (lessonId: string, submittedCode?: string) => {
-    const cId = courseId || 'int_01';
+    const cId = courseId && courseId !== 'undefined' ? courseId : (program?.id || program?._id || 'course_default');
     try {
       const res = await api.learning.updateProgress(cId, {
         lessonId,
@@ -296,11 +301,11 @@ export const CourseWorkspacePage: React.FC = () => {
         `}
       </style>
 
-      {/* Dynamic Anti-Screenshot Watermark Canvas Overlay */}
-      <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden opacity-[0.06] select-none flex flex-wrap gap-x-20 gap-y-16 justify-center items-center -rotate-12">
-        {Array.from({ length: 40 }).map((_, i) => (
+      {/* Visual Dynamic Anti-Cheat Audit Watermark (Subtle Background) */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-[0.018] select-none flex flex-wrap gap-x-24 gap-y-20 justify-center items-center -rotate-12">
+        {Array.from({ length: 24 }).map((_, i) => (
           <div key={i} className="text-slate-900 font-mono text-xs font-black tracking-widest whitespace-nowrap">
-            {studentName} • {studentEmail} • {liveTimestamp} • SIH26044-SECURE
+            {studentName} • {studentEmail} • {liveTimestamp} • SIH26044-AUDIT
           </div>
         ))}
       </div>
@@ -359,9 +364,22 @@ export const CourseWorkspacePage: React.FC = () => {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Hub</span>
             </Link>
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
-              PRIVATE INTERACTIVE MODULE
-            </span>
+            {program?.type === 'workshop' ? (
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900 flex items-center gap-1">
+                <Terminal className="w-3 h-3 text-amber-700" />
+                <span>HANDS-ON LAB SANDBOX</span>
+              </span>
+            ) : program?.type === 'course' ? (
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-100 text-blue-900 flex items-center gap-1">
+                <BookOpen className="w-3 h-3 text-blue-700" />
+                <span>SELF-PACED COURSE</span>
+              </span>
+            ) : (
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-purple-100 text-purple-900 flex items-center gap-1">
+                <Award className="w-3 h-3 text-purple-700" />
+                <span>INDUSTRY CERTIFICATION</span>
+              </span>
+            )}
             <span className="text-xs text-slate-400">
               Only visible to {studentName}
             </span>
@@ -533,10 +551,12 @@ export const CourseWorkspacePage: React.FC = () => {
                 )}
               </div>
 
-              {/* Module Description / Content */}
-              <div className="prose prose-sm max-w-none text-xs text-slate-600 whitespace-pre-line leading-relaxed bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
-                {activeLesson.content}
-              </div>
+              {/* Rich Lesson Content Renderer (No Raw Hashes or Asterisks) */}
+              <LessonContentRenderer
+                content={activeLesson.content}
+                keyTakeaways={(activeLesson as any).keyTakeaways}
+                title={activeLesson.title}
+              />
 
               {/* READING MODULE VIEW */}
               {activeLesson.type === 'reading' && (

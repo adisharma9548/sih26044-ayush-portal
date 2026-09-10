@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, FileText, Award, CheckCircle2, DollarSign, Users, Calendar, ShieldCheck, X } from 'lucide-react';
+import { Building2, FileText, Award, CheckCircle2, DollarSign, Users, Calendar, ShieldCheck, X, Sparkles, RefreshCw } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface MouProposalModalProps {
@@ -28,6 +28,39 @@ export const MouProposalModal: React.FC<MouProposalModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  // AI MoU Synthesis
+  const [aiSynthesizing, setAiSynthesizing] = useState(false);
+  const [aiNotice, setAiNotice] = useState('');
+
+  const handleAiSynthesize = async () => {
+    setAiSynthesizing(true);
+    setAiNotice('');
+    try {
+      const res = await api.ai.synthesizeMouTerms({
+        initiatorRole,
+        targetOrg: targetOrg || (initiatorRole === 'academician' ? 'Industry Corporate Partner' : 'Accredited University'),
+        focusArea: title.trim() || undefined,
+      });
+
+      const draft = res.data;
+      if (draft) {
+        if (draft.title) setTitle(draft.title);
+        if (draft.scope) setScope(draft.scope);
+        if (draft.ipTerms) setIpTerms(draft.ipTerms);
+        if (draft.internshipQuota) setInternshipQuota(draft.internshipQuota);
+        if (draft.grantFunding) setGrantFunding(draft.grantFunding);
+        if (draft.validityYears) setValidityYears(draft.validityYears);
+        setAiNotice('✨ AI synthesized balanced, UGC/AICTE-compliant bilateral MoU terms!');
+        setTimeout(() => setAiNotice(''), 5000);
+      }
+    } catch (err: any) {
+      setAiNotice('AI MoU synthesis is temporarily offline. You can fill terms manually.');
+      setTimeout(() => setAiNotice(''), 4000);
+    } finally {
+      setAiSynthesizing(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -107,6 +140,40 @@ export const MouProposalModal: React.FC<MouProposalModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              {/* AI Bilateral Agreement Synthesizer */}
+              <div className="p-3 bg-gradient-to-r from-purple-900 to-indigo-900 rounded-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-500/30 border border-purple-400/40 text-purple-200 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-white block">
+                      AI Bilateral Agreement Synthesizer
+                    </span>
+                    <span className="text-[10px] text-purple-200">
+                      Auto-generate balanced UGC/AICTE-compliant terms, joint IP clauses, and student quotas
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAiSynthesize}
+                  disabled={aiSynthesizing}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 shrink-0 transition-all cursor-pointer"
+                >
+                  <Sparkles className={`w-3 h-3 ${aiSynthesizing ? 'animate-spin' : ''}`} />
+                  <span>{aiSynthesizing ? 'Synthesizing...' : '✨ Auto-Draft MoU with AI'}</span>
+                </button>
+              </div>
+
+              {aiNotice && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-center gap-2">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>{aiNotice}</span>
+                </div>
+              )}
+
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl">
                   {error}

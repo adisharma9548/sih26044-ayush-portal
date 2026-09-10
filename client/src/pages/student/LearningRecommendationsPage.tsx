@@ -32,7 +32,8 @@ export const LearningRecommendationsPage: React.FC = () => {
   };
 
   const handleEnroll = async (prog: LearningProgram) => {
-    const res = await api.learning.enroll(prog.id);
+    const progId = prog.id || (prog as any)._id;
+    const res = await api.learning.enroll(progId);
     setEnrolledSuccess(res.data.message);
   };
 
@@ -63,9 +64,9 @@ export const LearningRecommendationsPage: React.FC = () => {
       <div className="flex items-center gap-2 overflow-x-auto p-1 bg-white border border-slate-200/80 rounded-xl">
         {[
           { key: 'all', label: 'All Modules' },
-          { key: 'certification', label: 'Certifications' },
-          { key: 'workshop', label: 'Hands-on Labs' },
-          { key: 'course', label: 'Self-Paced Courses' },
+          { key: 'workshop', label: '🛠️ Hands-on Labs' },
+          { key: 'course', label: '📖 Self-Paced Courses' },
+          { key: 'certification', label: '🎓 Certifications' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -83,108 +84,122 @@ export const LearningRecommendationsPage: React.FC = () => {
 
       {/* Program Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {filteredPrograms.map((prog) => (
-          <div
-            key={prog.id}
-            className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-          >
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={prog.providerLogo || 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=80&auto=format&fit=crop&q=80'}
-                    alt={prog.provider}
-                    className="w-10 h-10 rounded-xl object-cover border border-slate-100 shrink-0"
-                  />
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-500">{prog.provider}</span>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug">{prog.title}</h3>
+        {filteredPrograms.map((prog) => {
+          const progId = prog.id || (prog as any)._id;
+          const isWorkshop = prog.type === 'workshop';
+          const isCourse = prog.type === 'course';
+
+          return (
+            <div
+              key={progId}
+              className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={prog.providerLogo || 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=80&auto=format&fit=crop&q=80'}
+                      alt={prog.provider}
+                      className="w-10 h-10 rounded-xl object-cover border border-slate-100 shrink-0"
+                    />
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-500">{prog.provider}</span>
+                      <h3 className="text-sm font-bold text-slate-900 leading-snug">{prog.title}</h3>
+                    </div>
+                  </div>
+                  <Badge variant={prog.type === 'certification' ? 'purple' : prog.type === 'workshop' ? 'amber' : 'blue'}>
+                    {prog.type === 'workshop' ? '🛠️ HANDS-ON LAB' : prog.type === 'course' ? '📖 SELF-PACED' : '🎓 CERTIFICATION'}
+                  </Badge>
+                </div>
+
+                <p className="text-xs text-slate-600 leading-relaxed">{prog.description}</p>
+
+                {/* Skills covered chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  {prog.skillsCovered.map((skill, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-800 text-[10px] font-semibold"
+                    >
+                      +{skill}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Course Meta Specs */}
+                <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center text-xs">
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block font-bold">Duration</span>
+                    <span className="font-semibold text-slate-800 text-[11px]">{prog.duration}</span>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block font-bold">Rating</span>
+                    <span className="font-semibold text-amber-600 text-[11px] flex items-center justify-center gap-0.5">
+                      <Star className="w-3 h-3 fill-amber-500" /> {prog.rating}
+                    </span>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <span className="text-[10px] text-slate-400 block font-bold">Fee</span>
+                    <span className="font-bold text-emerald-700 text-[11px]">{prog.cost}</span>
                   </div>
                 </div>
-                <Badge variant={prog.type === 'certification' ? 'purple' : prog.type === 'workshop' ? 'amber' : 'blue'}>
-                  {prog.type.toUpperCase()}
-                </Badge>
+
+                {/* Expandable Syllabus */}
+                {prog.syllabus && (
+                  <div className="pt-2">
+                    <button
+                      onClick={() => toggleSyllabus(progId)}
+                      className="text-xs font-semibold text-slate-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{expandedSyllabus[progId] ? 'Hide Syllabus Modules' : `View Syllabus Modules (${prog.syllabus.length || 4})`}</span>
+                      {expandedSyllabus[progId] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {expandedSyllabus[progId] && (
+                      <ul className="mt-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 animate-in fade-in duration-150">
+                        {prog.syllabus.map((item, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-slate-700">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">{prog.description}</p>
-
-              {/* Skills covered chips */}
-              <div className="flex flex-wrap gap-1.5">
-                {prog.skillsCovered.map((skill, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-800 text-[10px] font-semibold"
-                  >
-                    +{skill}
-                  </span>
-                ))}
-              </div>
-
-              {/* Course Meta Specs */}
-              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center text-xs">
-                <div className="p-2 bg-slate-50 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block font-bold">Duration</span>
-                  <span className="font-semibold text-slate-800 text-[11px]">{prog.duration}</span>
-                </div>
-                <div className="p-2 bg-slate-50 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block font-bold">Rating</span>
-                  <span className="font-semibold text-amber-600 text-[11px] flex items-center justify-center gap-0.5">
-                    <Star className="w-3 h-3 fill-amber-500" /> {prog.rating}
-                  </span>
-                </div>
-                <div className="p-2 bg-slate-50 rounded-xl">
-                  <span className="text-[10px] text-slate-400 block font-bold">Fee</span>
-                  <span className="font-bold text-emerald-700 text-[11px]">{prog.cost}</span>
-                </div>
-              </div>
-
-              {/* Expandable Syllabus */}
-              {prog.syllabus && (
-                <div className="pt-2">
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {prog.enrolledCount.toLocaleString()} scholars enrolled
+                </span>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => toggleSyllabus(prog.id)}
-                    className="text-xs font-semibold text-slate-600 hover:text-emerald-700 flex items-center gap-1"
+                    onClick={() => navigate(`/student/learning/course/${progId}`)}
+                    className={`px-3 py-2 rounded-xl font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer text-white ${
+                      isWorkshop
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : isCourse
+                        ? 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-slate-900 hover:bg-slate-800'
+                    }`}
                   >
-                    <span>{expandedSyllabus[prog.id] ? 'Hide Syllabus Modules' : 'View Syllabus Modules (4)'}</span>
-                    {expandedSyllabus[prog.id] ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    <Play className="w-3.5 h-3.5 fill-white" />
+                    <span>
+                      {isWorkshop ? 'Enter Hands-On Lab' : isCourse ? 'Start Self-Paced Course' : 'Start Certification'}
+                    </span>
                   </button>
-
-                  {expandedSyllabus[prog.id] && (
-                    <ul className="mt-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 animate-in fade-in duration-150">
-                      {prog.syllabus.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-slate-700">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <button
+                    onClick={() => setEnrollingProg(prog)}
+                    className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors cursor-pointer"
+                  >
+                    Details & Enroll
+                  </button>
                 </div>
-              )}
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-slate-400 font-medium">
-                {prog.enrolledCount.toLocaleString()} scholars enrolled
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate(`/student/learning/course/${prog.id}`)}
-                  className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
-                >
-                  <Play className="w-3.5 h-3.5 fill-white" />
-                  <span>Start Course</span>
-                </button>
-                <button
-                  onClick={() => setEnrollingProg(prog)}
-                  className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs border border-emerald-200 transition-colors"
-                >
-                  Details & Enroll
-                </button>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Enrollment Modal */}
@@ -207,15 +222,21 @@ export const LearningRecommendationsPage: React.FC = () => {
               <div className="flex items-center justify-center gap-2 pt-2">
                 <button
                   onClick={() => {
-                    const id = enrollingProg.id;
+                    const id = enrollingProg.id || (enrollingProg as any)._id;
                     setEnrollingProg(null);
                     setEnrolledSuccess(null);
                     navigate(`/student/learning/course/${id}`);
                   }}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Play className="w-3.5 h-3.5 fill-white" />
-                  <span>Launch Course Workspace</span>
+                  <span>
+                    {enrollingProg.type === 'workshop'
+                      ? 'Enter Hands-On Lab Sandbox'
+                      : enrollingProg.type === 'course'
+                      ? 'Launch Self-Paced Workspace'
+                      : 'Launch Course Workspace'}
+                  </span>
                 </button>
               </div>
             </div>

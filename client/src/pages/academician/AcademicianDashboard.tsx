@@ -16,7 +16,8 @@ import {
   Clock,
   Video,
   Plus,
-  ShieldCheck
+  ShieldCheck,
+  GraduationCap
 } from 'lucide-react';
 import { MouProposalModal } from '../../components/common/MouProposalModal';
 
@@ -71,6 +72,13 @@ export const AcademicianDashboard: React.FC = () => {
               : `${user?.designation || 'Academic Faculty'} • ${user?.institution || 'Affiliated University'}. You have ${mentorships.filter(m => m.status === 'pending').length} pending mentorship request${mentorships.filter(m => m.status === 'pending').length === 1 ? '' : 's'} and ${opportunities.length} active industry sabbatical calls.`}
           </p>
           <div className="pt-2 flex flex-wrap items-center gap-3">
+            <Link
+              to="/academician/students"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Institutional Scholars (.edu.in)</span>
+            </Link>
             <Link
               to="/academician/mentorship"
               className="px-4 py-2 rounded-xl bg-white text-amber-950 font-bold text-xs hover:bg-amber-50 transition-colors"
@@ -139,7 +147,7 @@ export const AcademicianDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-slate-900">Student Mentorship Queue</h3>
-              <p className="text-xs text-slate-500">1-on-1 guidance requests for phytochemical dissertation protocols</p>
+              <p className="text-xs text-slate-500">1-on-1 guidance requests for student research dissertations and projects</p>
             </div>
             <Link to="/academician/mentorship" className="text-xs font-bold text-amber-700 hover:underline">
               View All →

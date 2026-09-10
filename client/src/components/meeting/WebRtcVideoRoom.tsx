@@ -124,35 +124,78 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
 
     const setupCall = async () => {
       try {
-        // 1. Get User Media (Camera + Mic)
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: 'user',
-          },
-          audio: true,
-        });
+        // 1. Get User Media (Camera + Mic) with robust fallback
+        let stream: MediaStream | null = null;
+        try {
+          if (navigator?.mediaDevices?.getUserMedia) {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: 'user',
+              },
+              audio: true,
+            });
+          }
+        } catch (mediaErr: any) {
+          console.warn('Full camera+audio stream unavailable, trying audio-only...', mediaErr);
+          try {
+            if (navigator?.mediaDevices?.getUserMedia) {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            }
+          } catch (audioErr: any) {
+            console.warn('Microphone also unavailable. Initializing session in presentation mode.', audioErr);
+            setPermissionError(
+              'Camera/Microphone access not available. You can still use the live whiteboard, shared code notes, chat, and screen sharing.'
+            );
+          }
+        }
+
+        // Fallback canvas video stream if hardware stream is null (e.g. headless or desktop without webcam)
+        if (!stream) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 360;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${currentUser.name} (Live Host)`, canvas.width / 2, canvas.height / 2);
+          }
+          stream = (canvas as any).captureStream ? (canvas as any).captureStream(5) : new MediaStream();
+        }
+
+        const activeStream: MediaStream = stream || new MediaStream();
 
         if (isCleanedUp) {
-          stream.getTracks().forEach((t) => t.stop());
+          activeStream.getTracks().forEach((t) => t.stop());
           return;
         }
 
-        localStreamRef.current = stream;
+        localStreamRef.current = activeStream;
         if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.srcObject = activeStream;
         }
 
-        // 2. Connect to Socket.IO signaling server
+        // 2. Connect to Socket.IO signaling server (Localhost or Persistent Railway)
+        const isLocal =
+          typeof window !== 'undefined' &&
+          (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
         const envBackendUrl = (import.meta as any).env?.VITE_BACKEND_URL;
-        const backendUrl = (
-          envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim()
-            ? envBackendUrl.trim()
-            : (import.meta as any).env?.PROD
-            ? 'https://sih26044-ayush-portal-server-4thq.vercel.app'
-            : 'http://localhost:5000'
-        ).replace(/\/+$/, '').replace(/\/api$/, '');
+        let backendUrl: string;
+        if (isLocal) {
+          backendUrl = 'http://localhost:5000';
+        } else if (envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim() && !envBackendUrl.includes('vercel.app')) {
+          backendUrl = envBackendUrl.trim();
+        } else {
+          backendUrl = 'https://sih26044-ayush-portal-production.up.railway.app';
+        }
+        backendUrl = backendUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+
         const socket = io(backendUrl, {
           transports: ['websocket', 'polling'],
           auth: {
@@ -166,8 +209,8 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
         pcRef.current = pc;
 
         // Add local tracks to RTCPeerConnection
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
+        activeStream.getTracks().forEach((track) => {
+          pc.addTrack(track, activeStream);
         });
 
         // Remote track received
@@ -408,11 +451,24 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
     setNewMessage('');
   };
 
-  // Copy Room Link / ID
-  const copyMeetingInfo = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  // Copy Room Link / Room Code
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const getDirectMeetingUrl = () => {
+    return `${window.location.origin}/meetings?room=${encodeURIComponent(roomId)}&title=${encodeURIComponent(roomTitle)}`;
+  };
+
+  const copyMeetingLink = () => {
+    navigator.clipboard.writeText(getDirectMeetingUrl());
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const copyRoomCode = () => {
+    navigator.clipboard.writeText(roomId);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
   };
 
   // Fullscreen
@@ -443,21 +499,39 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
                 WebRTC P2P HD (Unlimited)
               </span>
             </h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Room ID: <span className="font-mono text-slate-300">{roomId}</span> • Call Duration:{' '}
-              <span className="font-mono font-bold text-emerald-400">{formatDuration(callDuration)}</span>
+            <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
+              <span>
+                Room ID: <span className="font-mono text-slate-300">{roomId}</span>
+              </span>
+              <span>•</span>
+              <span>
+                Call Duration: <span className="font-mono font-bold text-emerald-400">{formatDuration(callDuration)}</span>
+              </span>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Copy Room Code Button */}
           <button
-            onClick={copyMeetingInfo}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Copy Meeting Link"
+            type="button"
+            onClick={copyRoomCode}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
+            title="Copy Room Code (e.g. guidance-...)"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Link Copied' : 'Share Room'}</span>
+            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedCode ? 'Code Copied!' : `Code: ${roomId}`}</span>
+          </button>
+
+          {/* Share Direct Meeting Link Button */}
+          <button
+            type="button"
+            onClick={copyMeetingLink}
+            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            title="Copy Full Meeting Join Link with Room Code"
+          >
+            {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+            <span>{copiedLink ? 'Link Copied!' : 'Share Link'}</span>
           </button>
 
           <button
@@ -513,13 +587,22 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
                   <p className="text-xs text-slate-400 max-w-sm mx-auto">
                     Your camera and microphone are live. The room is ready with unlimited duration. Share this link with the candidate or interviewer to connect.
                   </p>
-                  <div className="pt-2">
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
                     <button
-                      onClick={copyMeetingInfo}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors flex items-center gap-2 mx-auto cursor-pointer"
+                      type="button"
+                      onClick={copyMeetingLink}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>{copiedLink ? 'Meeting Link Copied!' : 'Copy Meeting Invite Link'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyRoomCode}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 font-mono font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-700"
                     >
                       <Copy className="w-4 h-4" />
-                      <span>{copied ? 'Copied to Clipboard!' : 'Copy Meeting Invite Link'}</span>
+                      <span>{copiedCode ? 'Room Code Copied!' : `Copy Code: ${roomId}`}</span>
                     </button>
                   </div>
                 </div>

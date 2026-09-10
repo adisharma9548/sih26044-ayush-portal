@@ -86,21 +86,8 @@ export const LiveMeetingPage: React.FC = () => {
       if (match) targetRoom = decodeURIComponent(match[1]);
     }
 
-    setActiveCallRoom({
-      id: targetRoom,
-      roomId: targetRoom,
-      title: 'Direct Video Session',
-      type: 'interview',
-      organizerName: 'Direct Peer Room',
-      organizerRole: 'industry',
-      participantName: user?.name || 'Participant',
-      participantEmail: user?.email || '',
-      scheduledAt: new Date().toISOString(),
-      durationMinutes: 60,
-      meetingUrl: `/meetings?room=${targetRoom}`,
-      status: 'in_progress',
-    });
     setRoomCodeInput('');
+    navigate(`/meetings?room=${encodeURIComponent(targetRoom)}&title=Direct%20Video%20Session`, { replace: true });
   };
 
   // Scheduling form state
@@ -293,7 +280,7 @@ export const LiveMeetingPage: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setActiveCallRoom(m)}
+                    onClick={() => navigate(`/meetings?room=${encodeURIComponent(m.roomId || m.id)}&title=${encodeURIComponent(m.title)}`, { replace: true })}
                     className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Video className="w-3.5 h-3.5" />

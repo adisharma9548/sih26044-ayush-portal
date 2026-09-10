@@ -21,8 +21,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ isLoading: true });
     try {
       const res = await api.notifications.getAll();
-      const unread = res.data.filter((n) => !n.read).length;
-      set({ notifications: res.data, unreadCount: unread, isLoading: false });
+      const mapped = (res.data || []).map((n: any) => ({
+        ...n,
+        id: (n.id || n._id)?.toString(),
+      }));
+      const unread = mapped.filter((n: any) => !n.read).length;
+      set({ notifications: mapped, unreadCount: unread, isLoading: false });
     } catch {
       set({ isLoading: false });
     }

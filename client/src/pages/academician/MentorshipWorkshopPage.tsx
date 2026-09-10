@@ -26,6 +26,8 @@ export const MentorshipWorkshopPage: React.FC = () => {
 
   // New Workshop Modal
   const [showNewWorkshopModal, setShowNewWorkshopModal] = useState(false);
+  const [aiGeneratingWorkshop, setAiGeneratingWorkshop] = useState(false);
+  const [aiWorkshopNotice, setAiWorkshopNotice] = useState('');
   const [workshopForm, setWorkshopForm] = useState({
     title: '',
     date: '',
@@ -35,6 +37,33 @@ export const MentorshipWorkshopPage: React.FC = () => {
     description: '',
     targetAudience: ''
   });
+
+  const handleAiWorkshopDraft = async () => {
+    setAiGeneratingWorkshop(true);
+    setAiWorkshopNotice('');
+    try {
+      const res = await api.ai.generateLearningModuleDraft({
+        domain: 'Higher Education & Technical Innovation',
+        type: 'workshop',
+        prompt: workshopForm.title.trim() || undefined,
+      });
+      const draft = res.data;
+      if (draft) {
+        setWorkshopForm((prev) => ({
+          ...prev,
+          title: draft.title || prev.title,
+          description: `${draft.description}\n\nTopics Covered:\n${draft.syllabus?.map((s: string) => `• ${s}`).join('\n')}`,
+        }));
+        setAiWorkshopNotice('✨ AI auto-drafted workshop curriculum!');
+        setTimeout(() => setAiWorkshopNotice(''), 4000);
+      }
+    } catch (err: any) {
+      setAiWorkshopNotice('AI drafting unavailable. Please enter details manually.');
+      setTimeout(() => setAiWorkshopNotice(''), 3000);
+    } finally {
+      setAiGeneratingWorkshop(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -240,6 +269,29 @@ export const MentorshipWorkshopPage: React.FC = () => {
           subtitle="Publish an institutional training session on the National Platform"
         >
           <form onSubmit={handleCreateWorkshop} className="space-y-4 text-xs">
+            {/* AI Workshop Curriculum Co-Pilot */}
+            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                <span className="text-[11px] font-bold text-amber-900">AI Workshop Curriculum Co-Pilot</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleAiWorkshopDraft}
+                disabled={aiGeneratingWorkshop}
+                className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+              >
+                <Sparkles className={`w-3 h-3 ${aiGeneratingWorkshop ? 'animate-spin' : ''}`} />
+                <span>{aiGeneratingWorkshop ? 'Drafting...' : '✨ Auto-Draft with AI'}</span>
+              </button>
+            </div>
+            {aiWorkshopNotice && (
+              <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span>{aiWorkshopNotice}</span>
+              </div>
+            )}
+
             <div>
               <label className="block font-bold text-slate-700 mb-1.5">Workshop Title</label>
               <input
@@ -307,7 +359,7 @@ export const MentorshipWorkshopPage: React.FC = () => {
                 rows={3}
                 value={workshopForm.description}
                 onChange={(e) => setWorkshopForm({ ...workshopForm, description: e.target.value })}
-                placeholder="Explain topics to be demonstrated, clinical case studies, or analytical machinery..."
+                placeholder="Detail workshop outcomes, practical demonstrations, and institutional takeaways..."
                 className="w-full p-3 rounded-xl border border-slate-300 text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
               />
             </div>

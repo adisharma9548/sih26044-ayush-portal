@@ -85,7 +85,11 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
 
       // Include any explicitly saved notifications
       const storedNotifs = await Notification.find({ userId: user._id.toString() }).sort({ createdAt: -1 }).lean();
-      return res.json({ data: [...adminNotifs, ...storedNotifs] });
+      const formattedStored = storedNotifs.map((n: any) => ({
+        ...n,
+        id: (n.id || n._id).toString(),
+      }));
+      return res.json({ data: [...adminNotifs, ...formattedStored] });
     }
 
     if (!user) {
@@ -93,7 +97,11 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
     }
 
     const notifs = await Notification.find({ userId: user._id.toString() }).sort({ createdAt: -1 }).lean();
-    res.json({ data: notifs });
+    const formattedNotifs = notifs.map((n: any) => ({
+      ...n,
+      id: (n.id || n._id).toString(),
+    }));
+    res.json({ data: formattedNotifs });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }

@@ -33,9 +33,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isAuthenticated) return;
+    fetchNotifications();
+    const interval = setInterval(() => {
       fetchNotifications();
-    }
+    }, 10000);
+    return () => clearInterval(interval);
   }, [isAuthenticated, fetchNotifications]);
 
   // Click outside listener for dropdowns

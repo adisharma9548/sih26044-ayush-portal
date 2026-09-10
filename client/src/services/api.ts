@@ -18,9 +18,19 @@ import {
   VerifiedProgram,
   ProgramHierarchyResponse,
   AcademicValidationResult,
+  InstitutionalStudent,
+  StudentDetailedProfileResponse,
 } from '../types';
 
 const resolveApiBase = (): string => {
+  const isLocal =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  if (isLocal) {
+    return 'http://localhost:5000/api';
+  }
+
   const envUrl = (import.meta as any).env?.VITE_API_URL;
   let base: string;
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
@@ -376,6 +386,20 @@ export const learningService = {
 
   getCertificate: async (certId: string): Promise<{ data: any }> => {
     return apiRequest(`/learning/certificate/${certId}`);
+  },
+
+  getManaged: async (): Promise<{ data: any[] }> => {
+    return apiRequest('/learning/manage');
+  },
+
+  getEnrollees: async (programId: string): Promise<{ data: { program: any; enrollees: any[]; totalEnrollees: number; totalCompleted: number } }> => {
+    return apiRequest(`/learning/programs/${programId}/enrollees`);
+  },
+
+  delete: async (programId: string): Promise<{ data: { success: boolean; message: string } }> => {
+    return apiRequest(`/learning/programs/${programId}`, {
+      method: 'DELETE',
+    });
   }
 };
 
@@ -421,6 +445,52 @@ export const academicianService = {
     return apiRequest('/academician/opportunities');
   },
 
+  createFacultyOpportunity: async (data: {
+    title: string;
+    organization?: string;
+    type: 'FDP' | 'Research Collaboration' | 'Consultancy' | 'Immersion';
+    stipendOrGrant: string;
+    duration: string;
+    deadline: string;
+    description: string;
+    requirements: string[];
+    ayushDomain?: string;
+  }): Promise<{ data: FacultyOpportunity }> => {
+    return apiRequest('/academician/opportunities', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  applyFacultyOpportunity: async (
+    id: string,
+    payload: {
+      proposalText: string;
+      experience?: string;
+      cvLink?: string;
+    }
+  ): Promise<{ data: FacultyOpportunity }> => {
+    return apiRequest(`/academician/opportunities/${id}/apply`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getIndustryFacultyPostings: async (): Promise<{ data: FacultyOpportunity[] }> => {
+    return apiRequest('/academician/opportunities/my-postings');
+  },
+
+  updateFacultyApplicationStatus: async (
+    oppId: string,
+    appId: string,
+    status: 'pending' | 'shortlisted' | 'accepted' | 'rejected'
+  ): Promise<{ data: any }> => {
+    return apiRequest(`/academician/opportunities/${oppId}/applications/${appId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  },
+
   getWorkshops: async (): Promise<{ data: Workshop[] }> => {
     return apiRequest('/academician/workshops');
   },
@@ -441,7 +511,30 @@ export const academicianService = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
-  }
+  },
+
+  getInstitutionalStudents: async (): Promise<{ data: InstitutionalStudent[]; meta?: any }> => {
+    return apiRequest('/academician/students');
+  },
+
+  getStudentDetailedProfile: async (studentId: string): Promise<{ data: StudentDetailedProfileResponse }> => {
+    return apiRequest(`/academician/students/${studentId}`);
+  },
+
+  assistStudentProject: async (
+    studentId: string,
+    payload: {
+      projectTitle: string;
+      assistanceType: 'guidance' | 'review' | 'endorsement' | 'meeting';
+      notes: string;
+      scheduleMeeting?: boolean;
+    }
+  ): Promise<{ data: any }> => {
+    return apiRequest(`/academician/students/${studentId}/assist-project`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
 };
 
 export const adminService = {
@@ -518,6 +611,131 @@ export const aiServiceClient = {
     return apiRequest('/ai/diagnostic/submit', {
       method: 'POST',
       body: JSON.stringify({ answers, degree, proctoring }),
+    });
+  },
+
+  generateOpportunityDraft: async (payload: {
+    oppType: 'internship' | 'job' | 'faculty';
+    facultySubtype?: 'Immersion' | 'FDP' | 'Research Collaboration' | 'Consultancy';
+    domain: string;
+    organization?: string;
+    prompt?: string;
+  }): Promise<{ data: any }> => {
+    return apiRequest('/ai/opportunity-draft', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  generateProposalDraft: async (payload: {
+    opportunityTitle: string;
+    organization: string;
+    opportunityType: string;
+    description: string;
+    requirements?: string[];
+    focusArea?: string;
+  }): Promise<{ data: { proposalText: string; experience: string; expectedDeliverables: string[] } }> => {
+    return apiRequest('/ai/proposal-draft', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  evaluateProposalSynergy: async (payload: {
+    opportunityTitle: string;
+    organization: string;
+    opportunityType: string;
+    requirements?: string[];
+    facultyName: string;
+    institution?: string;
+    proposalText: string;
+    experience?: string;
+  }): Promise<{
+    data: {
+      synergyScore: number;
+      verdict: string;
+      strengths: string[];
+      industrialFeasibility: string;
+      academicImpact: string;
+      recommendedAction: string;
+    };
+  }> => {
+    return apiRequest('/ai/proposal-synergy', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  generateLearningModuleDraft: async (payload: {
+    domain: string;
+    type?: 'certification' | 'workshop' | 'course';
+    level?: 'Beginner' | 'Intermediate' | 'Advanced';
+    cost?: string;
+    provider?: string;
+    prompt?: string;
+  }): Promise<{
+    data: {
+      title: string;
+      duration: string;
+      level: 'Beginner' | 'Intermediate' | 'Advanced';
+      cost: string;
+      skillsCovered: string[];
+      description: string;
+      syllabus: string[];
+    };
+  }> => {
+    return apiRequest('/ai/learning-draft', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getLearningMarketInsight: async (payload: {
+    domain: string;
+    type?: 'certification' | 'workshop' | 'course';
+  }): Promise<{
+    data: {
+      subtitle: string;
+      marketInsight: string;
+      gapStatistic: string;
+      trendingTopics: string[];
+      emergingDomains: string[];
+    };
+  }> => {
+    return apiRequest('/ai/learning-insight', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  synthesizeMouTerms: async (payload: {
+    initiatorRole?: 'academician' | 'industry';
+    initiatorOrg?: string;
+    targetOrg: string;
+    focusArea?: string;
+  }): Promise<{
+    data: {
+      title: string;
+      scope: string;
+      ipTerms: string;
+      internshipQuota: number;
+      grantFunding: string;
+      validityYears: number;
+    };
+  }> => {
+    return apiRequest('/ai/mou-synthesize', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getLearningTitleSuggestions: async (payload: {
+    domain: string;
+    type?: string;
+  }): Promise<{ data: string[] }> => {
+    return apiRequest('/ai/learning-titles', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 };

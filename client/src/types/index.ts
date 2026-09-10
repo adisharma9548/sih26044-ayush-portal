@@ -182,6 +182,21 @@ export interface Workshop {
   targetAudience: string;
 }
 
+export interface FacultyApplication {
+  id?: string;
+  _id?: string;
+  facultyId: string;
+  facultyName: string;
+  facultyEmail: string;
+  institution?: string;
+  department?: string;
+  proposalText: string;
+  experience?: string;
+  cvLink?: string;
+  status: 'pending' | 'shortlisted' | 'accepted' | 'rejected';
+  createdAt: string;
+}
+
 export interface FacultyOpportunity {
   id: string;
   title: string;
@@ -194,6 +209,8 @@ export interface FacultyOpportunity {
   requirements: string[];
   ayushDomain: string;
   status: 'open' | 'closed';
+  postedBy?: any;
+  applications?: FacultyApplication[];
 }
 
 export interface MentorshipRequest {
@@ -220,6 +237,17 @@ export interface StudentCertificate {
   badgeIcon: string;
 }
 
+export interface ProjectAssistance {
+  facultyId: string;
+  facultyName: string;
+  facultyEmail: string;
+  facultyDesignation?: string;
+  assistanceType: 'guidance' | 'review' | 'endorsement' | 'meeting';
+  notes: string;
+  meetingRoomId?: string;
+  createdAt: string;
+}
+
 export interface StudentProject {
   id: string;
   title: string;
@@ -229,6 +257,59 @@ export interface StudentProject {
   link?: string;
   startDate: string;
   endDate: string;
+  assistance?: ProjectAssistance[];
+}
+
+export interface InstitutionalStudent {
+  id: string;
+  _id?: string;
+  name: string;
+  email: string;
+  role: string;
+  institution?: string;
+  department?: string;
+  degree?: string;
+  academicField?: string;
+  specialization?: string;
+  graduationYear?: number;
+  skills?: string[];
+  profilePicture?: string;
+  skillScore?: number;
+  rankPercentile?: number;
+  assessedSkillsCount?: number;
+  lastAssessmentDate?: string;
+  projectsCount?: number;
+  certificatesCount?: number;
+  projects?: StudentProject[];
+}
+
+export interface StudentDetailedProfileResponse {
+  student: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    institution?: string;
+    department?: string;
+    degree?: string;
+    academicField?: string;
+    specialization?: string;
+    graduationYear?: number;
+    location?: string;
+    bio?: string;
+    skills: string[];
+    profilePicture?: string;
+    studyRoadmap?: any;
+    verified?: boolean;
+    createdAt?: string;
+  };
+  skillProfile: SkillProfile;
+  portfolio: {
+    certificates: StudentCertificate[];
+    projects: StudentProject[];
+  };
+  mentorshipHistory: MentorshipRequest[];
+  institutionalDomainMatched?: string;
 }
 
 export interface UGCDegreeSuggestion {

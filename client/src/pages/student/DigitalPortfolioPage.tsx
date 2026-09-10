@@ -15,7 +15,8 @@ import {
   Sparkles,
   FileCheck2,
   FolderGit2,
-  CheckCircle2
+  CheckCircle2,
+  Video
 } from 'lucide-react';
 
 export const DigitalPortfolioPage: React.FC = () => {
@@ -211,6 +212,43 @@ export const DigitalPortfolioPage: React.FC = () => {
                   </span>
                 ))}
               </div>
+
+              {/* Faculty Guidance & Assistance Notes */}
+              {proj.assistance && proj.assistance.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Faculty Academic Guidance (.edu.in)</span>
+                  </div>
+                  <div className="space-y-2">
+                    {proj.assistance.map((asst, aIdx) => (
+                      <div
+                        key={aIdx}
+                        className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-3 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-900">
+                          <span>{asst.facultyName} ({asst.assistanceType.toUpperCase()})</span>
+                          <span className="text-slate-400 font-normal">
+                            {new Date(asst.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-slate-700 leading-relaxed">{asst.notes}</p>
+                        {asst.meetingRoomId && (
+                          <div className="pt-1">
+                            <a
+                              href={`/meetings?room=${asst.meetingRoomId}`}
+                              className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-bold hover:underline"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span>Join Live Video Guidance Meeting</span>
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -232,7 +270,7 @@ export const DigitalPortfolioPage: React.FC = () => {
                 required
                 value={projectForm.title}
                 onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
-                placeholder="e.g. Phytochemical Standardization of Guduchi"
+                placeholder="e.g. Distributed Cloud File System / AI Diagnostic Engine"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>

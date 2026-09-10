@@ -15,6 +15,8 @@ export interface ILearningProgram extends Document {
   ayushDomain: string;
   cost: string;
   syllabus: string[];
+  isArchived: boolean;
+  creatorId?: string;
 }
 
 const LearningProgramSchema: Schema = new Schema(
@@ -33,6 +35,8 @@ const LearningProgramSchema: Schema = new Schema(
     ayushDomain: { type: String, default: 'Ayurveda' },
     cost: { type: String, default: 'Free' },
     syllabus: [{ type: String }],
+    isArchived: { type: Boolean, default: false },
+    creatorId: { type: String },
   },
   { timestamps: true }
 );

@@ -19,9 +19,9 @@ export const Captcha = forwardRef<CaptchaRef, CaptchaProps>(({ onValidate, class
   const [userInput, setUserInput] = useState<string>('');
   const [isValidated, setIsValidated] = useState<boolean | null>(null);
 
-  const generateCaptchaText = (length = 6): string => {
-    // Exclude easily confused characters: 0, O, o, 1, I, l
-    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+  const generateCaptchaText = (length = 5): string => {
+    // Only unambiguous capital letters and digits (no confusing 0/O, 1/I, no lowercase)
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
     let result = '';
     for (let i = 0; i < length; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -111,16 +111,17 @@ export const Captcha = forwardRef<CaptchaRef, CaptchaProps>(({ onValidate, class
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+    // Automatically convert any input to uppercase so user can type lowercase or uppercase seamlessly
+    const val = e.target.value.toUpperCase();
     setUserInput(val);
-    const valid = val.toLowerCase().trim() === captchaCode.toLowerCase().trim();
+    const valid = val.trim() === captchaCode.trim();
     setIsValidated(valid);
     if (onValidate) onValidate(valid);
   };
 
   useImperativeHandle(ref, () => ({
     validate: () => {
-      const valid = userInput.toLowerCase().trim() === captchaCode.toLowerCase().trim();
+      const valid = userInput.trim().toUpperCase() === captchaCode.trim().toUpperCase();
       setIsValidated(valid);
       return valid;
     },
@@ -135,7 +136,7 @@ export const Captcha = forwardRef<CaptchaRef, CaptchaProps>(({ onValidate, class
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
           Anti-Bot Security Verification
         </label>
-        <span className="text-[10px] text-slate-400">Case-insensitive</span>
+        <span className="text-[10px] text-slate-400">Capital letters & numbers</span>
       </div>
 
       <div className="flex items-center gap-3">
@@ -160,11 +161,11 @@ export const Captcha = forwardRef<CaptchaRef, CaptchaProps>(({ onValidate, class
             maxLength={6}
             value={userInput}
             onChange={handleInputChange}
-            placeholder="Enter code"
-            className={`w-full px-3 py-2.5 rounded-xl border text-xs font-semibold tracking-wider uppercase text-slate-900 focus:outline-none focus:ring-2 ${
+            placeholder="ENTER CODE"
+            className={`w-full px-3 py-2.5 rounded-xl border text-xs font-bold tracking-widest text-slate-900 focus:outline-none focus:ring-2 ${
               isValidated === true
                 ? 'border-emerald-500 focus:ring-emerald-500 bg-emerald-50/20'
-                : error || isValidated === false && userInput.length >= 5
+                : error || (isValidated === false && userInput.length >= 5)
                 ? 'border-rose-400 focus:ring-rose-500 bg-rose-50/20'
                 : 'border-slate-300 focus:ring-emerald-500'
             }`}

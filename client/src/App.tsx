@@ -34,11 +34,13 @@ import { VerifyCertificatePage } from './pages/common/VerifyCertificatePage';
 import { IndustryDashboard } from './pages/industry/IndustryDashboard';
 import { PostOpportunityPage } from './pages/industry/PostOpportunityPage';
 import { PostLearningProgramPage } from './pages/industry/PostLearningProgramPage';
+import { ManageLearningProgramsPage } from './pages/industry/ManageLearningProgramsPage';
 import { ManageApplicantsPage } from './pages/industry/ManageApplicantsPage';
 import { CandidateSearchPage } from './pages/industry/CandidateSearchPage';
 
 // Academician Pages
 import { AcademicianDashboard } from './pages/academician/AcademicianDashboard';
+import { InstitutionalStudentsPage } from './pages/academician/InstitutionalStudentsPage';
 import { FacultyOpportunitiesPage } from './pages/academician/FacultyOpportunitiesPage';
 import { MentorshipWorkshopPage } from './pages/academician/MentorshipWorkshopPage';
 
@@ -133,6 +135,7 @@ export function App() {
           <Route element={<ProtectedRoute allowedRoles={['industry']} />}>
             <Route path="/industry/dashboard" element={<IndustryDashboard />} />
             <Route path="/industry/post" element={<PostOpportunityPage />} />
+            <Route path="/industry/programs" element={<ManageLearningProgramsPage />} />
             <Route path="/industry/post-program" element={<PostLearningProgramPage />} />
             <Route path="/industry/applicants" element={<ManageApplicantsPage />} />
             <Route path="/industry/candidates" element={<CandidateSearchPage />} />
@@ -141,6 +144,7 @@ export function App() {
           {/* Academician Role Routes */}
           <Route element={<ProtectedRoute allowedRoles={['academician']} />}>
             <Route path="/academician/dashboard" element={<AcademicianDashboard />} />
+            <Route path="/academician/students" element={<InstitutionalStudentsPage />} />
             <Route path="/academician/opportunities" element={<FacultyOpportunitiesPage />} />
             <Route path="/academician/mentorship" element={<MentorshipWorkshopPage />} />
           </Route>

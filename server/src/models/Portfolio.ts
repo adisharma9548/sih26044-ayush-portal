@@ -1,5 +1,16 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IProjectAssistance {
+  facultyId: string;
+  facultyName: string;
+  facultyEmail: string;
+  facultyDesignation?: string;
+  assistanceType: 'guidance' | 'review' | 'endorsement' | 'meeting';
+  notes: string;
+  meetingRoomId?: string;
+  createdAt: Date;
+}
+
 export interface IPortfolio extends Document {
   userId: string;
   certificates: {
@@ -18,6 +29,7 @@ export interface IPortfolio extends Document {
     link?: string;
     startDate: string;
     endDate: string;
+    assistance?: IProjectAssistance[];
   }[];
 }
 
@@ -43,6 +55,22 @@ const PortfolioSchema: Schema = new Schema(
         link: { type: String },
         startDate: { type: String },
         endDate: { type: String },
+        assistance: [
+          {
+            facultyId: { type: String, required: true },
+            facultyName: { type: String, required: true },
+            facultyEmail: { type: String, required: true },
+            facultyDesignation: { type: String, default: '' },
+            assistanceType: {
+              type: String,
+              enum: ['guidance', 'review', 'endorsement', 'meeting'],
+              default: 'guidance',
+            },
+            notes: { type: String, required: true },
+            meetingRoomId: { type: String, default: '' },
+            createdAt: { type: Date, default: Date.now },
+          },
+        ],
       },
     ],
   },

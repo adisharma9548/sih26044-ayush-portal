@@ -44,14 +44,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const industryNav = [
     { label: 'Recruiter Dashboard', path: '/industry/dashboard', icon: LayoutDashboard },
     { label: 'Live Video Interviews', path: '/meetings', icon: Video },
+    { label: 'Learning Modules & Labs', path: '/industry/programs', icon: BookOpen },
     { label: 'Post Internship / Job', path: '/industry/post', icon: PlusCircle },
-    { label: 'Post Learning Module', path: '/industry/post-program', icon: BookOpen },
     { label: 'Manage Applicants', path: '/industry/applicants', icon: Users },
     { label: 'Candidate Search', path: '/industry/candidates', icon: Search },
   ];
 
   const academicianNav = [
     { label: 'Faculty Dashboard', path: '/academician/dashboard', icon: LayoutDashboard },
+    { label: 'Institutional Scholars (.edu.in)', path: '/academician/students', icon: GraduationCap },
     { label: 'Live Mentorship Meetings', path: '/meetings', icon: Video },
     { label: 'Industry Immersion & FDP', path: '/academician/opportunities', icon: School },
     { label: 'Mentorship & Workshops', path: '/academician/mentorship', icon: CalendarCheck },

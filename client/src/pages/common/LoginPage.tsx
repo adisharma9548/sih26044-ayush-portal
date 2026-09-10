@@ -243,7 +243,9 @@ export const LoginPage: React.FC = () => {
                       ? 'candidate@gmail.com'
                       : selectedRole === 'industry'
                       ? 'recruiter@company.com'
-                      : 'student@dtu.edu.in'
+                      : selectedRole === 'academician'
+                      ? 'prof.gupta@dtu.edu.in'
+                      : 'aarav.sharma@dtu.edu.in'
                   }
                 />
               </div>

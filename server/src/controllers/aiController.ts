@@ -5,6 +5,13 @@ import {
   evaluateDiagnosticAnswers,
   generateStudyTimeline,
   getDynamicSpecializations,
+  generateOpportunityDraft,
+  generateProposalDraft,
+  evaluateProposalSynergy,
+  generateLearningModuleDraft,
+  generateLearningMarketInsight,
+  synthesizeMouTerms,
+  generateLearningTitleSuggestions,
 } from '../services/aiService';
 import { searchRoadmapsForLaggingSkills } from '../services/roadmapService';
 import { SkillProfile } from '../models/SkillProfile';
@@ -214,3 +221,145 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
     res.status(500).json({ error: { code: 'EVALUATION_ERROR', message: err.message } });
   }
 };
+
+export const generateOpportunityDraftController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { oppType, facultySubtype, domain, organization, prompt } = req.body;
+    const org = organization || req.user?.institution || req.user?.name || '';
+    const draft = await generateOpportunityDraft({
+      oppType: oppType || 'internship',
+      facultySubtype,
+      domain: domain || 'Technology & Engineering',
+      organization: org,
+      prompt,
+    });
+    res.json({ data: draft });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_DRAFT_ERROR', message: err.message } });
+  }
+};
+
+export const generateProposalDraftController = async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      opportunityTitle,
+      organization,
+      opportunityType,
+      description,
+      requirements,
+      focusArea,
+    } = req.body;
+
+    const draft = await generateProposalDraft({
+      opportunityTitle: opportunityTitle || 'Research Immersion',
+      organization: organization || 'Corporate Partner',
+      opportunityType: opportunityType || 'Immersion',
+      description: description || '',
+      requirements: Array.isArray(requirements) ? requirements : [],
+      facultyName: req.user?.name || 'Faculty Researcher',
+      institution: req.user?.institution || '',
+      focusArea,
+    });
+    res.json({ data: draft });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_PROPOSAL_ERROR', message: err.message } });
+  }
+};
+
+export const evaluateProposalSynergyController = async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      opportunityTitle,
+      organization,
+      opportunityType,
+      requirements,
+      facultyName,
+      institution,
+      proposalText,
+      experience,
+    } = req.body;
+
+    const evaluation = await evaluateProposalSynergy({
+      opportunityTitle: opportunityTitle || '',
+      organization: organization || '',
+      opportunityType: opportunityType || '',
+      requirements: Array.isArray(requirements) ? requirements : [],
+      facultyName: facultyName || '',
+      institution: institution || '',
+      proposalText: proposalText || '',
+      experience: experience || '',
+    });
+    res.json({ data: evaluation });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_SYNERGY_ERROR', message: err.message } });
+  }
+};
+
+export const generateLearningModuleDraftController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { domain, type, level, cost, prompt } = req.body;
+    if (!domain) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Domain is required to generate curriculum' } });
+    }
+
+    const draft = await generateLearningModuleDraft({
+      domain,
+      type,
+      level,
+      cost,
+      provider: req.user?.institution || req.user?.name,
+      prompt,
+    });
+    res.json({ data: draft });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_LEARNING_DRAFT_ERROR', message: err.message } });
+  }
+};
+
+export const generateLearningMarketInsightController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { domain, type } = req.body;
+    if (!domain) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Domain is required for market insight' } });
+    }
+    const insight = await generateLearningMarketInsight({
+      domain,
+      type,
+      provider: req.user?.institution || req.user?.name,
+    });
+    res.json({ data: insight });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_INSIGHT_ERROR', message: err.message } });
+  }
+};
+
+export const synthesizeMouTermsController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { initiatorRole, initiatorOrg, targetOrg, focusArea } = req.body;
+    const initiator = initiatorOrg || req.user?.institution || req.user?.name || 'Initiating Partner';
+    const synthesized = await synthesizeMouTerms({
+      initiatorRole: initiatorRole || (req.user?.role === 'industry' ? 'industry' : 'academician'),
+      initiatorOrg: initiator,
+      targetOrg: targetOrg || 'Target Partner Organization',
+      focusArea,
+    });
+    res.json({ data: synthesized });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_MOU_SYNTHESIS_ERROR', message: err.message } });
+  }
+};
+
+export const generateLearningTitlesController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { domain, type } = req.body;
+    if (!domain) {
+      return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'Domain is required for title generation' } });
+    }
+    const titles = await generateLearningTitleSuggestions(domain, type);
+    res.json({ data: titles });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'AI_TITLES_ERROR', message: err.message } });
+  }
+};
+
+
