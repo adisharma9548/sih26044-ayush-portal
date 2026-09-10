@@ -26,7 +26,7 @@ const resolveApiBase = (): string => {
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
     base = envUrl.trim();
   } else if ((import.meta as any).env?.PROD) {
-    base = 'https://sih26044-ayush-portal-production.up.railway.app/api';
+    base = 'https://sih26044-ayush-portal-server-4thq.vercel.app/api';
   } else {
     base = 'http://localhost:5000/api';
   }

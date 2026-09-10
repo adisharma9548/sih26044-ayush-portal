@@ -150,7 +150,7 @@ export const WebRtcVideoRoom: React.FC<WebRtcVideoRoomProps> = ({
           envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim()
             ? envBackendUrl.trim()
             : (import.meta as any).env?.PROD
-            ? 'https://sih26044-ayush-portal-production.up.railway.app'
+            ? 'https://sih26044-ayush-portal-server-4thq.vercel.app'
             : 'http://localhost:5000'
         ).replace(/\/+$/, '').replace(/\/api$/, '');
         const socket = io(backendUrl, {

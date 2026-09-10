@@ -77,6 +77,7 @@ const defaultOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://sih26044-ayush-portal-production.up.railway.app',
+  'https://sih26044-ayush-portal-server-4thq.vercel.app',
 ];
 
 const envOrigins = process.env.CORS_ORIGINS
@@ -252,10 +253,14 @@ const startServer = async () => {
     const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN
       ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN.trim().replace(/^https?:\/\//, '')}`
       : null;
+    const vercelUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL.trim().replace(/^https?:\/\//, '')}`
+      : null;
     const defaultPublicUrl = isProd
-      ? 'https://sih26044-ayush-portal-production.up.railway.app'
+      ? 'https://sih26044-ayush-portal-server-4thq.vercel.app'
       : `http://localhost:${PORT}`;
     const publicUrl =
+      vercelUrl ||
       railwayUrl ||
       process.env.RENDER_EXTERNAL_URL?.trim() ||
       process.env.BACKEND_URL?.trim() ||
