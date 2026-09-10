@@ -42,8 +42,8 @@ export interface StudyTimelineResult {
 }
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const PRIMARY_MODEL = 'openai/gpt-oss-120b';
-const FALLBACK_MODEL = 'qwen/qwen3.8-27b';
+const PRIMARY_MODEL = 'groq/compound-mini';
+const FALLBACK_MODEL = 'openai/gpt-oss-20b';
 
 async function callGroq(prompt: string, jsonMode: boolean = true): Promise<any> {
   const apiKey = process.env.GROQ_API_KEY;
@@ -55,9 +55,12 @@ async function callGroq(prompt: string, jsonMode: boolean = true): Promise<any> 
   let lastError: any = null;
 
   for (const model of models) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
     try {
       const res = await fetch(GROQ_API_URL, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -75,6 +78,7 @@ async function callGroq(prompt: string, jsonMode: boolean = true): Promise<any> 
           temperature: 0.3,
         }),
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         const errText = await res.text();
@@ -88,6 +92,7 @@ async function callGroq(prompt: string, jsonMode: boolean = true): Promise<any> 
       const cleaned = content.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
       return JSON.parse(cleaned);
     } catch (err: any) {
+      clearTimeout(timeoutId);
       lastError = err;
       console.warn(`[Groq AI ${model} Notice]: ${err.message}. Trying next model if available.`);
     }

@@ -26,12 +26,12 @@ const BASE_URL = rawApiUrl.replace(/\/+$/, '');
 // Production request wrapper with real backend enforcement and HTTP status propagation
 async function apiRequest<T>(
   endpoint: string,
-  options?: RequestInit
+  options?: RequestInit,
+  timeoutMs: number = 20000
 ): Promise<{ data: T }> {
   const token = localStorage.getItem('ayush_portal_token');
   const controller = new AbortController();
-  // 45-second timeout to allow for Render free-tier cold starts
-  const timeoutId = setTimeout(() => controller.abort(), 45000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(`${BASE_URL}${endpoint}`, {
@@ -55,7 +55,7 @@ async function apiRequest<T>(
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      const timeoutErr = new Error('Request timed out. Please verify backend server is awake and reachable.');
+      const timeoutErr = new Error('Request timed out. Please verify backend server is reachable.');
       (timeoutErr as any).status = 408;
       throw timeoutErr;
     }
@@ -65,18 +65,26 @@ async function apiRequest<T>(
 
 export const authService = {
   login: async (email: string, password?: string, role: UserRole = 'student'): Promise<{ data: { user: User; token: string } }> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
       const res = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, role }),
       });
-      const data = await res.json();
+      clearTimeout(timeoutId);
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error?.message || 'Invalid email or password');
       }
       return data;
     } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error('Login timed out. Please check your network connection and retry.');
+      }
       if (err.message && err.message !== 'Failed to fetch') {
         throw err;
       }
@@ -91,19 +99,28 @@ export const authService = {
       (err as any).status = 401;
       throw err;
     }
-    const res = await fetch(`${BASE_URL}/auth/me`, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const err = new Error(data?.error?.message || 'Session expired');
-      (err as any).status = res.status;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    try {
+      const res = await fetch(`${BASE_URL}/auth/me`, {
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      clearTimeout(timeoutId);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const err = new Error(data?.error?.message || 'Session expired');
+        (err as any).status = res.status;
+        throw err;
+      }
+      return data;
+    } catch (err: any) {
+      clearTimeout(timeoutId);
       throw err;
     }
-    return data;
   },
 
   sendOtp: async (payload: { email: string; role: string; companyName?: string; facultyId?: string }): Promise<{ data: { success: boolean; message: string } }> => {
@@ -534,32 +551,68 @@ export const mouService = {
   },
 };
 
+// Client-side cache for high-frequency queries (0ms instant response)
+const clientCache = new Map<string, { data: any; expiry: number }>();
+const getCached = <T>(key: string): T | null => {
+  const entry = clientCache.get(key);
+  if (entry && Date.now() < entry.expiry) return entry.data;
+  return null;
+};
+const setCached = <T>(key: string, data: T, ttlMs = 10 * 60 * 1000): T => {
+  if (clientCache.size > 200) {
+    const oldest = clientCache.keys().next().value;
+    if (oldest) clientCache.delete(oldest);
+  }
+  clientCache.set(key, { data, expiry: Date.now() + ttlMs });
+  return data;
+};
+
 export const ugcService = {
   searchDegrees: async (query: string, type: 'degree' | 'field' = 'degree'): Promise<{ data: { suggestions: UGCDegreeSuggestion[] } }> => {
+    const key = `ugc:${type}:${query.trim().toLowerCase()}`;
+    const cached = getCached<{ data: { suggestions: UGCDegreeSuggestion[] } }>(key);
+    if (cached) return cached;
+
     const params = new URLSearchParams();
     params.append('q', query);
     params.append('type', type);
-    return apiRequest(`/degrees/search?${params.toString()}`);
+    const res = await apiRequest<{ suggestions: UGCDegreeSuggestion[] }>(`/degrees/search?${params.toString()}`);
+    return setCached(key, res);
   }
 };
 
 export const academicService = {
   searchInstitutions: async (query: string): Promise<{ data: { institutions: VerifiedInstitution[] } }> => {
+    const key = `inst:${query.trim().toLowerCase()}`;
+    const cached = getCached<{ data: { institutions: VerifiedInstitution[] } }>(key);
+    if (cached) return cached;
+
     const params = new URLSearchParams({ q: query });
-    return apiRequest(`/academic/institutions?${params.toString()}`);
+    const res = await apiRequest<{ institutions: VerifiedInstitution[] }>(`/academic/institutions?${params.toString()}`);
+    return setCached(key, res);
   },
 
   getPrograms: async (institution: string, affiliatingUniversity?: string): Promise<{ data: { programs: VerifiedProgram[] } }> => {
+    const key = `progs:${institution.trim().toLowerCase()}:${(affiliatingUniversity || '').trim().toLowerCase()}`;
+    const cached = getCached<{ data: { programs: VerifiedProgram[] } }>(key);
+    if (cached) return cached;
+
     const params = new URLSearchParams({ institution });
     if (affiliatingUniversity) {
       params.append('affiliatingUniversity', affiliatingUniversity);
     }
-    return apiRequest(`/academic/programs?${params.toString()}`);
+    const res = await apiRequest<{ programs: VerifiedProgram[] }>(`/academic/programs?${params.toString()}`);
+    return setCached(key, res);
   },
 
   getHierarchy: async (institution: string, degree: string): Promise<{ data: ProgramHierarchyResponse }> => {
+    const key = `hier:${institution.trim().toLowerCase()}:${degree.trim().toLowerCase()}`;
+    const cached = getCached<{ data: ProgramHierarchyResponse }>(key);
+    if (cached) return cached;
+
     const params = new URLSearchParams({ institution, degree });
-    return apiRequest(`/academic/hierarchy?${params.toString()}`);
+    const res = await apiRequest<ProgramHierarchyResponse>(`/academic/hierarchy?${params.toString()}`);
+    return setCached(key, res);
   },
 
   validateCombination: async (payload: {

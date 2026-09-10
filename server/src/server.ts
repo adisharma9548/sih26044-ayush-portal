@@ -49,9 +49,9 @@ import rateLimit from 'express-rate-limit';
 const app = express();
 const server = http.createServer(app);
 
-// Trust Render/Heroku/Vercel reverse proxy so express-rate-limit can identify real client IPs
+// Trust Railway/Render/Vercel reverse proxies so express-rate-limit can identify real client IPs
 // via X-Forwarded-For header. Without this, ERR_ERL_UNEXPECTED_X_FORWARDED_FOR is thrown.
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 
 // 1. Security & Logging Middlewares
 app.use(
@@ -133,9 +133,10 @@ app.use(
 // 2. Production Rate Limiting
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1500,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS' || req.path.includes('health'),
   message: {
     error: {
       code: 'RATE_LIMIT_EXCEEDED',
@@ -146,9 +147,10 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: {
     error: {
       code: 'AUTH_RATE_LIMIT_EXCEEDED',
