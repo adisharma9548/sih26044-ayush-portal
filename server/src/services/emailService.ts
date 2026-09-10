@@ -20,17 +20,7 @@ try {
 
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { Resend } from 'resend';
 import { OtpVerification } from '../models/OtpVerification';
-
-// Cached Resend client (initialized lazily)
-let resendClient: Resend | null = null;
-const getResendClient = (): Resend | null => {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  if (!apiKey) return null;
-  if (!resendClient) resendClient = new Resend(apiKey);
-  return resendClient;
-};
 
 // OWASP A02: Cryptographically secure pseudorandom number generator (CSPRNG)
 export const generateOtp = (): string => {
@@ -118,42 +108,6 @@ export const checkEmailConfig = async (): Promise<{
   error?: string;
   hint?: string;
 }> => {
-  const resendApiKey = process.env.RESEND_API_KEY?.trim();
-  const resend = getResendClient();
-
-  // 1. Primary Check: Resend API (HTTPS Port 443 — Cloud Safe on Render/Vercel/Railway)
-  if (resendApiKey && resend) {
-    try {
-      const { error } = await resend.apiKeys.list();
-      // If error is null or the key is scoped to 'sending only', it is 100% valid for sending emails
-      if (!error || error.name === 'restricted_api_key' || (error as any).statusCode === 401 || error.message?.includes('only send emails')) {
-        return {
-          configured: true,
-          provider: 'Resend Email API (HTTPS Port 443 — Cloud Safe)',
-          user: `${resendApiKey.substring(0, 8)}...`,
-          verified: true,
-        };
-      } else {
-        return {
-          configured: true,
-          provider: 'Resend Email API',
-          verified: false,
-          error: `Resend API Error: ${error.message || JSON.stringify(error)}`,
-          hint: 'Please check that RESEND_API_KEY is correctly copied into Render Environment variables.',
-        };
-      }
-    } catch (resendErr: any) {
-      return {
-        configured: true,
-        provider: 'Resend Email API',
-        verified: false,
-        error: `Resend connectivity error: ${resendErr?.message || resendErr}`,
-      };
-    }
-  }
-
-
-  // 2. Secondary Check: Nodemailer SMTP
   const gmailUser = process.env.GMAIL_USER?.trim();
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
   const smtpHost = process.env.SMTP_HOST?.trim();
@@ -161,8 +115,8 @@ export const checkEmailConfig = async (): Promise<{
   if (!gmailUser && !smtpHost) {
     return {
       configured: false,
-      error: 'No email service configured. Set RESEND_API_KEY or GMAIL_USER/GMAIL_APP_PASSWORD in Render Environment variables.',
-      hint: 'Get a free API key in 1 minute from https://resend.com and add RESEND_API_KEY to Render.',
+      error: 'No email service configured. Set GMAIL_USER and GMAIL_APP_PASSWORD in environment variables.',
+      hint: 'Please provide valid GMAIL_USER and GMAIL_APP_PASSWORD in your server environment.',
     };
   }
 
@@ -219,7 +173,7 @@ export const checkEmailConfig = async (): Promise<{
           provider: 'Gmail SMTP (Cloud Host Outbound Port Filtered)',
           verified: false,
           error: `Port 587: ${verifyErr.message || verifyErr}; Port 465: ${fallbackErr.message || fallbackErr}`,
-          hint: 'Cloud container platforms block outbound SMTP ports 587/465. Add RESEND_API_KEY (from https://resend.com) to Railway Variables for instant HTTPS delivery.',
+          hint: 'Cloud container platforms block outbound SMTP ports 587/465. Request Railway support to unblock outbound SMTP ports 587 and 465 for project sih26044.',
         };
       }
     }
@@ -241,12 +195,11 @@ export const sendOtpEmail = async (
   const { appName, supportEmail, senderAddress } = getEmailConfig();
 
   const transporter = getTransporter();
-  const resend = getResendClient();
 
-  // Require at least one delivery method
-  if (!transporter && !resend) {
+  // Require SMTP transporter
+  if (!transporter) {
     console.error(
-      `❌ [EMAIL CONFIG ERROR] No email service configured for ${cleanEmail}. Set RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD.`
+      `❌ [EMAIL CONFIG ERROR] No email service configured for ${cleanEmail}. Set GMAIL_USER+GMAIL_APP_PASSWORD.`
     );
     throw new Error(
       `Email service is currently unavailable. Please contact support at ${supportEmail}.`
@@ -315,34 +268,7 @@ export const sendOtpEmail = async (
 
   let lastError: any = null;
 
-  // 2. Primary: Resend (HTTPS API — works on Render, Vercel, Railway, AWS — no SMTP port required)
-  if (resend) {
-    try {
-      const fromAddress =
-        process.env.RESEND_FROM_ADDRESS?.trim() ||
-        process.env.EMAIL_FROM_ADDRESS?.trim() ||
-        'onboarding@resend.dev';
-      const { error } = await resend.emails.send({
-        from: `${appName} <${fromAddress}>`,
-        to: [cleanEmail],
-        subject,
-        html: htmlBody,
-        text: textBody,
-      });
-      if (error) throw new Error(error.message || JSON.stringify(error));
-      console.log(`✅ [RESEND SUCCESS] Verification email delivered to ${cleanEmail}`);
-      return {
-        success: true,
-        message: `A 6-digit verification code has been dispatched to ${cleanEmail}. Please check your inbox and spam folder.`,
-      };
-    } catch (resendErr: any) {
-      lastError = resendErr;
-      console.warn(`⚠️ [RESEND FAILED] Resend delivery to ${cleanEmail} failed: ${resendErr?.message || resendErr}`);
-    }
-  }
-
-
-  // 3. Fallback: Nodemailer SMTP (port 587 then 465)
+  // Nodemailer SMTP dispatch (port 587 STARTTLS, then port 465 SSL fallback)
   if (transporter) {
     const mailOptions = {
       from: `"${appName}" <${senderAddress}>`,
