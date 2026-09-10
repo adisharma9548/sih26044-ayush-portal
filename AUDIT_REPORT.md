@@ -138,8 +138,8 @@ BOOTSTRAP_ADMIN_PASSWORD=SetAStrongPassword123!
 
 #### Frontend (.env):
 ```env
-VITE_API_URL=https://sih26044-ayush-portal.onrender.com/api
-VITE_BACKEND_URL=https://sih26044-ayush-portal.onrender.com
+VITE_API_URL=https://sih26044-ayush-portal-production.up.railway.app/api
+VITE_BACKEND_URL=https://sih26044-ayush-portal-production.up.railway.app
 ```
 
 ### Running Locally

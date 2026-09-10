@@ -6,7 +6,7 @@ This document provides the complete API contracts, request payloads, and respons
 
 ## 🌐 Global Conventions
 
-- **Base URL**: `https://sih26044-ayush-portal.onrender.com/api` (or `http://localhost:5000/api` locally)
+- **Base URL**: `https://sih26044-ayush-portal-production.up.railway.app/api` (or `http://localhost:5000/api` locally)
 - **Content-Type**: `application/json`
 - **Authentication**: Bearer Token in HTTP header: `Authorization: Bearer <JWT_TOKEN>`
 - **Response Format**: All successful responses wrap the payload in `{ "data": ... }` to match the frontend service architecture.
@@ -957,7 +957,7 @@ This document provides the complete API contracts, request payloads, and respons
 When your backend is ready:
 1. In `src/services/api.ts`, replace the `delay()` mock dispatchers with real `fetch()` or `axios` calls:
 ```typescript
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://sih26044-ayush-portal.onrender.com/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://sih26044-ayush-portal-production.up.railway.app/api';
 
 const request = async <T>(url: string, options?: RequestInit): Promise<{ data: T }> => {
   const token = localStorage.getItem('ayush_portal_token');

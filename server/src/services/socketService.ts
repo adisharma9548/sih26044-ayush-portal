@@ -12,6 +12,7 @@ export const initSocketIO = (httpServer: HTTPServer) => {
     'https://sih26044-ayush-portal.vercel.app',
     'http://localhost:5173',
     'http://localhost:3000',
+    'https://sih26044-ayush-portal-production.up.railway.app',
   ];
 
   const envOrigins = process.env.CORS_ORIGINS
@@ -35,7 +36,8 @@ export const initSocketIO = (httpServer: HTTPServer) => {
           allowedOrigins.includes(normalizedOrigin) ||
           allowedOrigins.includes('*') ||
           process.env.NODE_ENV !== 'production' ||
-          normalizedOrigin.endsWith('.vercel.app')
+          normalizedOrigin.endsWith('.vercel.app') ||
+          normalizedOrigin.endsWith('.up.railway.app')
         ) {
           callback(null, true);
         } else {

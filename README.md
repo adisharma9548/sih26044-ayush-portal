@@ -65,8 +65,8 @@ npm run install:all
 - **Frontend (`client/`)**:
   Copy `client/.env.example` to `client/.env`:
   ```bash
-  VITE_API_URL=https://sih26044-ayush-portal.onrender.com/api
-  VITE_BACKEND_URL=https://sih26044-ayush-portal.onrender.com
+  VITE_API_URL=https://sih26044-ayush-portal-production.up.railway.app/api
+  VITE_BACKEND_URL=https://sih26044-ayush-portal-production.up.railway.app
   ```
 - **Backend (`server/`)**:
   Copy `server/.env.example` to `server/.env`:
@@ -118,8 +118,8 @@ Because the frontend and backend are decoupled, you can deploy them easily to yo
    - **Build Command**: `npm run build`
    - **Output Directory**: `dist`
 3. Add Environment Variables:
-   - `VITE_API_URL`: Your deployed backend API URL (e.g. `https://ayush-api.onrender.com/api`)
-   - `VITE_BACKEND_URL`: Your deployed backend root URL (e.g. `https://ayush-api.onrender.com`)
+   - `VITE_API_URL`: Your deployed backend API URL (e.g. `https://sih26044-ayush-portal-production.up.railway.app/api`)
+   - `VITE_BACKEND_URL`: Your deployed backend root URL (e.g. `https://sih26044-ayush-portal-production.up.railway.app`)
 4. The included `client/vercel.json` automatically handles SPA routing.
 
 #### Deploying on Netlify

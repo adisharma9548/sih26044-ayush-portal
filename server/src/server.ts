@@ -76,6 +76,7 @@ const defaultOrigins = [
   'https://sih26044-ayush-portal.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://sih26044-ayush-portal-production.up.railway.app',
 ];
 
 const envOrigins = process.env.CORS_ORIGINS
@@ -99,14 +100,19 @@ app.use(
       if (!origin) return callback(null, true);
       const normalizedOrigin = origin.replace(/\/+$/, '');
 
-      // OWASP A01 / A05: Strictly allow this specific project's Vercel domains (including previews), not all Vercel apps
+      // OWASP A01 / A05: Strictly allow this specific project's Vercel & Railway domains (including previews)
       const isOfficialVercelDeployment =
         normalizedOrigin === 'https://sih26044-ayush-portal.vercel.app' ||
         /^https:\/\/sih26044-ayush-portal(-[a-zA-Z0-9_-]+)?\.vercel\.app$/.test(normalizedOrigin);
 
+      const isOfficialRailwayDeployment =
+        normalizedOrigin === 'https://sih26044-ayush-portal-production.up.railway.app' ||
+        /^https:\/\/sih26044-ayush-portal(-[a-zA-Z0-9_-]+)?\.up\.railway\.app$/.test(normalizedOrigin);
+
       if (
         allowedOrigins.includes(normalizedOrigin) ||
         isOfficialVercelDeployment ||
+        isOfficialRailwayDeployment ||
         !isProd
       ) {
         callback(null, true);
@@ -232,13 +238,20 @@ const startServer = async () => {
     await initRedis();
 
     const appName = process.env.APP_NAME?.trim() || 'Ayush Portal';
-    // Use the real public URL in production if available (Render sets RENDER_EXTERNAL_URL automatically)
+    // Use the real public URL in production if available (Railway sets RAILWAY_PUBLIC_DOMAIN, Render sets RENDER_EXTERNAL_URL)
+    const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN.trim().replace(/^https?:\/\//, '')}`
+      : null;
+    const defaultPublicUrl = isProd
+      ? 'https://sih26044-ayush-portal-production.up.railway.app'
+      : `http://localhost:${PORT}`;
     const publicUrl =
+      railwayUrl ||
       process.env.RENDER_EXTERNAL_URL?.trim() ||
       process.env.BACKEND_URL?.trim() ||
-      `http://localhost:${PORT}`;
+      defaultPublicUrl;
     const wsUrl = publicUrl.replace(/^https?:\/\//, 'wss://').replace(/^http:\/\//, 'ws://');
-    server.listen(PORT, () => {
+    server.listen(Number(PORT) || 5000, '0.0.0.0', () => {
       console.log(`=======================================================`);
       console.log(`🚀 ${appName} Backend Server running on port ${PORT}`);
       console.log(`📡 Health Check: ${publicUrl}/api/health`);

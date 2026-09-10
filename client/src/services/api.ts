@@ -20,7 +20,7 @@ import {
   AcademicValidationResult,
 } from '../types';
 
-const rawApiUrl = (import.meta as any).env?.VITE_API_URL || 'https://sih26044-ayush-portal.onrender.com/api';
+const rawApiUrl = (import.meta as any).env?.VITE_API_URL || 'https://sih26044-ayush-portal-production.up.railway.app/api';
 const BASE_URL = rawApiUrl.replace(/\/+$/, '');
 
 // Production request wrapper with real backend enforcement and HTTP status propagation
