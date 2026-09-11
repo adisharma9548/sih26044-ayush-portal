@@ -32,6 +32,15 @@ export interface IAssessmentAttempt extends Document {
   score: number;
   answers: Record<string, number>;
   evaluatedAt: Date;
+  academicContextHash?: string;
+  academicContextVersion?: number;
+  academicContext?: {
+    degree?: string;
+    department?: string;
+    specialization?: string;
+    institution?: string;
+  };
+  isCurrentContext?: boolean;
   proctoring?: {
     violationsCount: number;
     violationsLog: { type: string; timestamp: Date; details?: string }[];
@@ -46,6 +55,15 @@ const AssessmentAttemptSchema: Schema = new Schema(
     score: { type: Number, required: true, min: 0, max: 100 },
     answers: { type: Map, of: Number },
     evaluatedAt: { type: Date, default: Date.now },
+    academicContextHash: { type: String, default: '' },
+    academicContextVersion: { type: Number, default: 1 },
+    academicContext: {
+      degree: { type: String, default: '' },
+      department: { type: String, default: '' },
+      specialization: { type: String, default: '' },
+      institution: { type: String, default: '' },
+    },
+    isCurrentContext: { type: Boolean, default: true, index: true },
     proctoring: {
       violationsCount: { type: Number, default: 0 },
       violationsLog: [
@@ -62,6 +80,7 @@ const AssessmentAttemptSchema: Schema = new Schema(
   { timestamps: true }
 );
 
+AssessmentAttemptSchema.index({ userId: 1, isCurrentContext: 1 });
 AssessmentAttemptSchema.index({ userId: 1, evaluatedAt: -1 });
 AssessmentAttemptSchema.index({ evaluatedAt: 1 });
 

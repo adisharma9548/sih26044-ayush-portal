@@ -18,6 +18,7 @@ import { SkillProfile } from '../models/SkillProfile';
 import { AssessmentAttempt } from '../models/Assessment';
 import { User } from '../models/User';
 import { recordAuditLog } from '../services/auditService';
+import { SCORING_POLICY } from '../config/scoringPolicy';
 
 export const getSpecializations = async (req: AuthRequest, res: Response) => {
   try {
@@ -150,28 +151,63 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
       });
     }
 
+    profile.status = 'current';
+    profile.academicContextHash = req.user.academicContextHash || '';
+    profile.academicContextVersion = req.user.academicContextVersion || 1;
+    profile.academicContext = {
+      degree: targetDegree || req.user.degree || '',
+      department: req.user.department || '',
+      specialization: req.user.specialization || '',
+      institution: req.user.institution || '',
+      academicField: req.user.academicField || '',
+    };
     profile.overallScore = evaluation.overallScore;
     const totalProfiles = await SkillProfile.countDocuments({ _id: { $ne: profile._id } });
     const lowerProfiles = await SkillProfile.countDocuments({
       _id: { $ne: profile._id },
       overallScore: { $lt: evaluation.overallScore },
     });
-    profile.rankPercentile = totalProfiles > 0 ? Math.round((lowerProfiles / totalProfiles) * 100) : evaluation.overallScore;
+    const isProctoredValid =
+      proctoring &&
+      typeof proctoring.integrityScore === 'number' &&
+      proctoring.integrityScore >= SCORING_POLICY.verification.minimumProctoringIntegrity &&
+      !proctoring.terminatedEarly;
+
     profile.skills = evaluation.radar.map((r) => ({
       name: r.subject,
       level: r.score,
       industryBenchmark: r.benchmark,
-      verified: true,
+      benchmarkStatus: r.benchmarkStatus || (r.benchmark !== null ? 'available' : 'insufficient_data'),
+      benchmarkReason: r.reason,
+      verified: !!isProctoredValid,
+      verificationStatus: isProctoredValid ? 'verified' : 'unverified',
+      verificationSources: isProctoredValid
+        ? [
+            {
+              sourceType: 'assessment' as const,
+              verifiedAt: new Date(),
+              verifiedBy: 'AI Adaptive Diagnostic Assessment',
+              scoreOrRating: r.score,
+              notes: `Proctored test integrity score: ${proctoring.integrityScore}%`,
+            },
+          ]
+        : [],
       category: 'Diagnostic Assessment',
     }));
     profile.strengths = evaluation.strengths;
-    profile.gapAnalysis = evaluation.gaps.map((g) => ({
-      skill: g.skill,
-      currentLevel: Math.max(1, Math.round((evaluation.overallScore / 100) * 5)),
-      requiredLevel: 5,
-      gapPercentage: g.gapPercentage,
-      priority: g.priority,
-    }));
+    profile.gapAnalysis = evaluation.gaps.map((g) => {
+      const match = evaluation.radar.find((r) => r.subject.toLowerCase() === g.skill.toLowerCase());
+      const currentLevel = match ? match.score : evaluation.overallScore;
+      const requiredLevel = match && match.benchmark !== null ? match.benchmark : null;
+      return {
+        skill: g.skill,
+        currentLevel,
+        requiredLevel,
+        gapPercentage: g.gapPercentage,
+        status: (requiredLevel === null ? 'NO_BENCHMARK_DATA' : 'PARTIAL') as any,
+        priority: g.priority,
+      };
+    });
     profile.lastAssessmentDate = new Date().toISOString().split('T')[0];
 
     await profile.save();
@@ -188,6 +224,15 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
           return acc;
         }, {}),
         evaluatedAt: new Date(),
+        academicContextHash: req.user.academicContextHash || '',
+        academicContextVersion: req.user.academicContextVersion || 1,
+        academicContext: {
+          degree: targetDegree || req.user.degree || '',
+          department: req.user.department || '',
+          specialization: req.user.specialization || '',
+          institution: req.user.institution || '',
+        },
+        isCurrentContext: true,
         proctoring: proctoring
           ? {
               violationsCount: proctoring.violationsCount || 0,

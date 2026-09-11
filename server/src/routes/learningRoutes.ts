@@ -9,12 +9,14 @@ import {
   getManagedLearningPrograms,
   getProgramEnrollees,
   deleteLearningProgram,
+  getLearningRecommendations,
 } from '../controllers/learningController';
 import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
 router.get('/programs', getAllLearningPrograms);
+router.get('/recommendations', authenticate, getLearningRecommendations);
 router.post('/programs', authenticate, authorize('industry', 'academician', 'admin'), createLearningProgram);
 router.post('/programs/:id/enroll', authenticate, enrollLearningProgram);
 

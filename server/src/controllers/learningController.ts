@@ -5,6 +5,9 @@ import { CourseProgress } from '../models/CourseProgress';
 import { Portfolio } from '../models/Portfolio';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
+import { SkillProfile } from '../models/SkillProfile';
+import { normalizeSkillName } from '../services/benchmarkService';
+import { searchRoadmapsForLaggingSkills } from '../services/roadmapService';
 import { emitToUser } from '../services/socketService';
 
 export const getAllLearningPrograms = async (_req: Request, res: Response) => {
@@ -716,4 +719,115 @@ export const deleteLearningProgram = async (req: Request, res: Response) => {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }
 };
+
+/**
+ * Returns learning recommendations based strictly on the student's ACTUAL identified skill gaps.
+ * Flow: Student Assessment -> SkillProfile -> Gaps -> Matching LearningPrograms -> Roadmap Guidance
+ * Never returns fake or arbitrary recommendations.
+ */
+export const getLearningRecommendations = async (req: Request, res: Response) => {
+  try {
+    const authUser = (req as any).user;
+    const { userId } = req.query;
+    const targetUserId = (authUser?.role === 'admin' && userId) ? userId.toString() : authUser?._id?.toString();
+
+    if (!targetUserId) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    const profile = await SkillProfile.findOne({ userId: targetUserId }).lean();
+
+    if (
+      !profile ||
+      (profile as any).status === 'not_assessed' ||
+      !Array.isArray(profile.skills) ||
+      profile.skills.length === 0 ||
+      !Array.isArray(profile.gapAnalysis) ||
+      profile.gapAnalysis.length === 0
+    ) {
+      return res.json({
+        data: {
+          recommendations: [],
+          roadmaps: [],
+          hasGaps: false,
+          academicContextVersion: (profile as any)?.academicContextVersion || authUser?.academicContextVersion || 1,
+          message: 'No competency gaps detected for your current academic program. Complete a diagnostic assessment to identify verified bridge courses.',
+        },
+      });
+    }
+
+    // Filter to active gaps requiring remediation (PARTIAL or MISSING)
+    const activeGaps = profile.gapAnalysis.filter(
+      (g: any) => g.status === 'PARTIAL' || g.status === 'MISSING' || (typeof g.gapPercentage === 'number' && g.gapPercentage > 0)
+    );
+
+    if (activeGaps.length === 0) {
+      return res.json({
+        data: {
+          recommendations: [],
+          roadmaps: [],
+          hasGaps: false,
+          message: 'All assessed competencies currently meet industry benchmarks. No remedial bridge courses needed.',
+        },
+      });
+    }
+
+    const gapSkillNames = activeGaps.map((g: any) => g.skill);
+    const allPrograms = await LearningProgram.find({ isArchived: { $ne: true } }).lean();
+
+    const recommendations: any[] = [];
+    const seenProgramIds = new Set<string>();
+
+    activeGaps.forEach((gap: any) => {
+      const normGap = normalizeSkillName(gap.skill);
+      const matching = allPrograms.filter((p: any) =>
+        Array.isArray(p.skillsCovered) &&
+        p.skillsCovered.some((sc: string) => {
+          if (!sc || typeof sc !== 'string') return false;
+          const normSc = normalizeSkillName(sc);
+          return normSc === normGap || normSc.includes(normGap) || normGap.includes(normSc);
+        })
+      );
+
+      matching.forEach((prog: any) => {
+        const progId = prog._id.toString();
+        if (!seenProgramIds.has(progId)) {
+          seenProgramIds.add(progId);
+          recommendations.push({
+            ...prog,
+            id: progId,
+            _id: progId,
+            recommendationReason: `Recommended because you have a detected gap in "${gap.skill}" (${gap.gapPercentage ? `${gap.gapPercentage}% gap` : 'unmet benchmark'}), and this course provides accredited bridge curriculum covering "${gap.skill}".`,
+            targetedGapSkill: gap.skill,
+            gapPriority: gap.priority || 'Medium',
+            gapPercentage: gap.gapPercentage,
+          });
+        }
+      });
+    });
+
+    // Curated roadmap.sh mappings for these lagging skills from MongoDB
+    const roadmaps = await searchRoadmapsForLaggingSkills(gapSkillNames);
+
+    res.json({
+      data: {
+        recommendations,
+        roadmaps,
+        hasGaps: true,
+        totalGaps: activeGaps.length,
+        evaluatedGaps: activeGaps.map((g: any) => ({
+          skill: g.skill,
+          currentLevel: g.currentLevel,
+          requiredLevel: g.requiredLevel,
+          gapPercentage: g.gapPercentage,
+          priority: g.priority,
+          status: g.status,
+        })),
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
 

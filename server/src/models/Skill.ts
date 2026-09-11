@@ -2,11 +2,11 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface ISkill extends Document {
   name: string;
-  category: 'Phytochemistry' | 'Clinical Practice' | 'Regulatory & GMP' | 'Research Methodology' | 'Pharmacovigilance' | 'General';
+  category: string;
   description: string;
-  industryBenchmark: number; // 0 - 100
+  industryBenchmark?: number; // 0 - 100, optional / dynamically determined
   type: 'technical' | 'domain' | 'tools' | 'soft';
-  ayushDomain: string;
+  ayushDomain?: string;
   status: 'active' | 'deprecated';
 }
 
@@ -19,9 +19,9 @@ const SkillSchema: Schema = new Schema(
       index: true,
     },
     description: { type: String, default: '' },
-    industryBenchmark: { type: Number, required: true, min: 0, max: 100, default: 75 },
+    industryBenchmark: { type: Number, min: 0, max: 100 },
     type: { type: String, enum: ['technical', 'domain', 'tools', 'soft'], default: 'technical' },
-    ayushDomain: { type: String, default: 'Ayurveda' },
+    ayushDomain: { type: String },
     status: { type: String, enum: ['active', 'deprecated'], default: 'active' },
   },
   { timestamps: true }

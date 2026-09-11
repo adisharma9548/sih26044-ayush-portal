@@ -87,6 +87,11 @@ export const ProfileSettingsPage: React.FC = () => {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const oldDegree = (user?.degree || '').trim().toLowerCase();
+    const oldDept = (user?.department || '').trim().toLowerCase();
+    const oldInst = (user?.institution || '').trim().toLowerCase();
+    const oldSpec = (user?.specialization || '').trim().toLowerCase();
+
     await updateProfile({
       name: formData.name,
       phone: formData.phone,
@@ -99,8 +104,19 @@ export const ProfileSettingsPage: React.FC = () => {
       specialization: formData.specialization,
       graduationYear: formData.graduationYear ? parseInt(formData.graduationYear, 10) : undefined,
     });
-    setSuccessMsg('Profile updated successfully.');
-    setTimeout(() => setSuccessMsg(''), 4000);
+
+    const isAcademicChanged =
+      oldDegree !== formData.degree.trim().toLowerCase() ||
+      oldDept !== formData.department.trim().toLowerCase() ||
+      oldInst !== formData.institution.trim().toLowerCase() ||
+      oldSpec !== formData.specialization.trim().toLowerCase();
+
+    if (isAcademicChanged) {
+      setSuccessMsg('Academic profile updated. Active competency radar and learning roadmaps have been refreshed for your new program.');
+    } else {
+      setSuccessMsg('Profile updated successfully.');
+    }
+    setTimeout(() => setSuccessMsg(''), 5000);
   };
 
   const handleSavePassword = async (e: React.FormEvent) => {
@@ -112,8 +128,8 @@ export const ProfileSettingsPage: React.FC = () => {
       return;
     }
 
-    if (formData.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters long.');
+    if (formData.newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters long.');
       return;
     }
 

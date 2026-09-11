@@ -19,10 +19,19 @@ const generateToken = (userId: string, role: string): string => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role: requestedRole } = req.body;
 
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'Valid email and password strings are required' } });
+    }
+
+    if (!requestedRole || typeof requestedRole !== 'string') {
+      return res.status(400).json({ error: { code: 'ROLE_REQUIRED', message: 'Login section role is required' } });
+    }
+
+    const allowedRoles = ['student', 'jobseeker', 'industry', 'academician', 'admin'];
+    if (!allowedRoles.includes(requestedRole)) {
+      return res.status(400).json({ error: { code: 'INVALID_ROLE', message: 'Invalid login section specified' } });
     }
 
     const cleanId = email.toLowerCase().trim();
@@ -59,6 +68,41 @@ export const login = async (req: Request, res: Response) => {
         details: { reason: 'Incorrect password' },
       });
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' } });
+    }
+
+    // Account verification / status validation
+    if (user.verified === false) {
+      await recordAuditLog({
+        req,
+        userId: user._id.toString(),
+        userEmail: user.email,
+        userRole: user.role,
+        action: 'LOGIN_FAILURE',
+        entity: 'User',
+        status: 'FAILURE',
+        details: { reason: 'Account pending verification' },
+      });
+      return res.status(403).json({ error: { code: 'ACCOUNT_PENDING_APPROVAL', message: 'Your account is pending verification or approval.' } });
+    }
+
+    // STRICT ROLE VERIFICATION: The user's actual database role MUST match the selected login section
+    if (user.role !== requestedRole) {
+      await recordAuditLog({
+        req,
+        userId: user._id.toString(),
+        userEmail: user.email,
+        userRole: user.role,
+        action: 'LOGIN_FAILURE',
+        entity: 'User',
+        status: 'FAILURE',
+        details: { reason: `Role mismatch: actual role '${user.role}' does not match login section '${requestedRole}'` },
+      });
+      return res.status(401).json({
+        error: {
+          code: 'ROLE_MISMATCH',
+          message: 'These credentials do not belong to this login type.',
+        },
+      });
     }
 
     user.loginCount = (user.loginCount || 0) + 1;
@@ -471,14 +515,19 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { code: 'OTP_EXPIRED', message: 'Reset code expired or not requested. Please request a new one.' } });
     }
 
-    const recordBuf = Buffer.from(record.otp);
-    const inputBuf = Buffer.from(cleanOtp);
+    // Compare OTP hash using timingSafeEqual
+    const hashedInput = crypto.createHash('sha256').update(cleanOtp).digest('hex');
+    const storedHash = record.otpHash || crypto.createHash('sha256').update(record.otp).digest('hex');
+
+    const inputBuf = Buffer.from(hashedInput, 'hex');
+    const storedBuf = Buffer.from(storedHash, 'hex');
+
     const isMatch =
-      recordBuf.length === inputBuf.length &&
-      crypto.timingSafeEqual(recordBuf, inputBuf);
+      inputBuf.length === storedBuf.length &&
+      crypto.timingSafeEqual(inputBuf, storedBuf);
 
     if (!isMatch) {
-      record.attempts += 1;
+      record.attempts = (record.attempts || 0) + 1;
       if (record.attempts >= 5) {
         await OtpVerification.deleteOne({ _id: record._id });
         return res.status(400).json({ error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many incorrect attempts. Reset code invalidated.' } });
@@ -493,6 +542,7 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
     }
 
     user.password = newPassword;
+    user.passwordChangedAt = new Date();
     user.requiresPasswordReset = false;
     await user.save();
     await OtpVerification.deleteOne({ _id: record._id });
@@ -512,6 +562,165 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
       data: {
         success: true,
         message: 'Password successfully reset in MongoDB. You can now sign in with your new password.',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+/**
+ * Verifies OTP for password reset and generates a cryptographically signed, short-lived resetToken (JWT).
+ * Enforces single-use invalidation of OTP and max 5 attempts.
+ */
+export const verifyResetOtp = async (req: Request, res: Response) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Email and verification code are required' } });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanOtp = otp.toString().trim();
+
+    const record = await OtpVerification.findOne({
+      email: cleanEmail,
+      purpose: 'PASSWORD_RESET',
+    });
+
+    if (!record) {
+      return res.status(400).json({ error: { code: 'OTP_EXPIRED', message: 'Reset code expired or not requested. Please request a new code.' } });
+    }
+
+    const hashedInput = crypto.createHash('sha256').update(cleanOtp).digest('hex');
+    const storedHash = record.otpHash || crypto.createHash('sha256').update(record.otp).digest('hex');
+
+    const inputBuf = Buffer.from(hashedInput, 'hex');
+    const storedBuf = Buffer.from(storedHash, 'hex');
+
+    const isMatch =
+      inputBuf.length === storedBuf.length &&
+      crypto.timingSafeEqual(inputBuf, storedBuf);
+
+    if (!isMatch) {
+      record.attempts = (record.attempts || 0) + 1;
+      if (record.attempts >= 5) {
+        await OtpVerification.deleteOne({ _id: record._id });
+        return res.status(400).json({ error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many incorrect attempts. Reset code invalidated for your security.' } });
+      }
+      await record.save();
+      return res.status(400).json({ error: { code: 'INVALID_OTP', message: `Invalid code. ${5 - record.attempts} attempts remaining.` } });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User account not found' } });
+    }
+
+    // SINGLE USE: Invalidate OTP record immediately so it cannot be reused
+    await OtpVerification.deleteOne({ _id: record._id });
+
+    // Issue signed JWT reset token with 15-minute expiration
+    const resetToken = jwt.sign(
+      {
+        userId: user._id.toString(),
+        email: user.email,
+        purpose: 'PASSWORD_RESET',
+      },
+      getJwtSecret(),
+      { expiresIn: '15m' }
+    );
+
+    res.json({
+      data: {
+        success: true,
+        resetToken,
+        message: 'Verification code confirmed. You may now set your new password.',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+/**
+ * Resets password using cryptographically verified resetToken.
+ * Rejects invalid, expired, or already-used tokens.
+ */
+export const resetPasswordWithToken = async (req: Request, res: Response) => {
+  try {
+    const { resetToken, newPassword, email, otp } = req.body;
+
+    // Backward compatibility: If email + otp + newPassword are provided instead of resetToken
+    if (!resetToken && email && otp && newPassword) {
+      return resetPasswordWithOtp(req, res);
+    }
+
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Reset token and new password are required' } });
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 8 characters long' } });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(resetToken, getJwtSecret());
+    } catch (jwtErr: any) {
+      return res.status(401).json({
+        error: {
+          code: 'INVALID_RESET_TOKEN',
+          message: 'Password reset token has expired or is invalid. Please request a new verification code.',
+        },
+      });
+    }
+
+    if (decoded.purpose !== 'PASSWORD_RESET' || !decoded.userId) {
+      return res.status(401).json({ error: { code: 'INVALID_RESET_TOKEN', message: 'Invalid reset token purpose.' } });
+    }
+
+    const user = await User.findById(decoded.userId).select('+password');
+    if (!user) {
+      return res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User account not found' } });
+    }
+
+    // Invalidate if token was issued before or at the last password reset time
+    if (user.passwordChangedAt && decoded.iat) {
+      const changedAtSeconds = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      if (decoded.iat <= changedAtSeconds) {
+        return res.status(401).json({
+          error: {
+            code: 'TOKEN_ALREADY_USED',
+            message: 'This reset token has already been used. Please request a new verification code.',
+          },
+        });
+      }
+    }
+
+    user.password = newPassword;
+    user.passwordChangedAt = new Date();
+    user.requiresPasswordReset = false;
+    await user.save();
+
+    // Clean up any remaining OTPs
+    await OtpVerification.deleteMany({ email: user.email, purpose: 'PASSWORD_RESET' });
+
+    await recordAuditLog({
+      req,
+      userId: user._id.toString(),
+      userEmail: user.email,
+      userRole: user.role,
+      action: 'PASSWORD_RESET',
+      entity: 'User',
+      status: 'SUCCESS',
+      details: { method: 'SECURE_TOKEN_RESET' },
+    });
+
+    res.json({
+      data: {
+        success: true,
+        message: 'Password successfully updated. You can now log in with your new credentials.',
       },
     });
   } catch (err: any) {

@@ -27,16 +27,32 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
   };
 
   // Build polygon path for student skill levels
-  const studentPoints = skills.map((s, i) => {
-    const { x, y } = getCoordinates(s.level, i, radius);
-    return `${x},${y}`;
-  }).join(' ');
+  const studentPoints = skills
+    .map((s, i) => {
+      const { x, y } = getCoordinates(s.level, i, radius);
+      return `${x},${y}`;
+    })
+    .join(' ');
 
-  // Build polygon path for industry benchmark
-  const benchmarkPoints = skills.map((s, i) => {
-    const { x, y } = getCoordinates(s.industryBenchmark, i, radius);
-    return `${x},${y}`;
-  }).join(' ');
+  // Industry benchmark handling: Only plot when real benchmark data exists
+  const benchmarkedSkillsCount = skills.filter(
+    (s) => typeof s.industryBenchmark === 'number' && s.industryBenchmark !== null
+  ).length;
+  const hasBenchmarks = benchmarkedSkillsCount > 0;
+
+  // Build benchmark points: interpolate center (0) if benchmark is unavailable on that axis
+  const benchmarkPoints = hasBenchmarks
+    ? skills
+        .map((s, i) => {
+          const val =
+            typeof s.industryBenchmark === 'number' && s.industryBenchmark !== null
+              ? s.industryBenchmark
+              : 0;
+          const { x, y } = getCoordinates(val, i, radius);
+          return `${x},${y}`;
+        })
+        .join(' ')
+    : '';
 
   return (
     <div className="flex flex-col items-center">
@@ -44,12 +60,14 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
         {/* Background circular / polygon webs */}
         {levels.map((level, lvlIdx) => {
           const levelRadius = radius * level;
-          const levelPoints = skills.map((_, i) => {
-            const angle = i * angleSlice - Math.PI / 2;
-            const x = center + levelRadius * Math.cos(angle);
-            const y = center + levelRadius * Math.sin(angle);
-            return `${x},${y}`;
-          }).join(' ');
+          const levelPoints = skills
+            .map((_, i) => {
+              const angle = i * angleSlice - Math.PI / 2;
+              const x = center + levelRadius * Math.cos(angle);
+              const y = center + levelRadius * Math.sin(angle);
+              return `${x},${y}`;
+            })
+            .join(' ');
 
           return (
             <g key={lvlIdx}>
@@ -91,14 +109,16 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
           );
         })}
 
-        {/* Industry Benchmark Polygon */}
-        <polygon
-          points={benchmarkPoints}
-          fill="rgba(59, 130, 246, 0.12)"
-          stroke="#3b82f6"
-          strokeWidth="2"
-          strokeDasharray="4 4"
-        />
+        {/* Industry Benchmark Polygon (rendered only if real data exists) */}
+        {hasBenchmarks && (
+          <polygon
+            points={benchmarkPoints}
+            fill="rgba(59, 130, 246, 0.12)"
+            stroke="#3b82f6"
+            strokeWidth="2"
+            strokeDasharray="4 4"
+          />
+        )}
 
         {/* Student Level Polygon */}
         <polygon
@@ -124,6 +144,23 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
           );
         })}
 
+        {/* Data points for industry benchmark if present */}
+        {skills.map((s, i) => {
+          if (typeof s.industryBenchmark !== 'number' || s.industryBenchmark === null) return null;
+          const { x, y } = getCoordinates(s.industryBenchmark, i, radius);
+          return (
+            <circle
+              key={`benchmark-pt-${i}`}
+              cx={x}
+              cy={y}
+              r="3.5"
+              fill="#3b82f6"
+              stroke="#ffffff"
+              strokeWidth="1.5"
+            />
+          );
+        })}
+
         {/* Axis Labels */}
         {skills.map((s, i) => {
           const angle = i * angleSlice - Math.PI / 2;
@@ -134,6 +171,8 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
           const isRight = Math.cos(angle) > 0.1;
           const isLeft = Math.cos(angle) < -0.1;
           const anchor = isRight ? 'start' : isLeft ? 'end' : 'middle';
+
+          const hasBench = typeof s.industryBenchmark === 'number' && s.industryBenchmark !== null;
 
           return (
             <g key={`label-${i}`}>
@@ -151,7 +190,12 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
                 textAnchor={anchor}
                 className="fill-emerald-600 font-bold text-[10px]"
               >
-                {s.level}% <tspan className="fill-blue-500 font-normal">({s.industryBenchmark}%)</tspan>
+                {s.level}%{' '}
+                {hasBench ? (
+                  <tspan className="fill-blue-500 font-normal">({s.industryBenchmark}%)</tspan>
+                ) : (
+                  <tspan className="fill-slate-400 font-normal italic">(No Benchmark)</tspan>
+                )}
               </text>
             </g>
           );
@@ -159,15 +203,21 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 380 }) =>
       </svg>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 mt-4 text-xs">
+      <div className="flex flex-wrap items-center justify-center gap-4 mt-4 text-xs">
         <div className="flex items-center gap-2">
           <div className="w-3.5 h-3.5 rounded bg-emerald-500/20 border-2 border-emerald-500"></div>
-          <span className="text-slate-700 font-medium">Your Verified Score</span>
+          <span className="text-slate-700 font-medium">Your Competency Score</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded bg-blue-500/20 border-2 border-dashed border-blue-500"></div>
-          <span className="text-slate-700 font-medium">Industry Benchmark</span>
-        </div>
+        {hasBenchmarks ? (
+          <div className="flex items-center gap-2">
+            <div className="w-3.5 h-3.5 rounded bg-blue-500/20 border-2 border-dashed border-blue-500"></div>
+            <span className="text-slate-700 font-medium">Industry Benchmark ({benchmarkedSkillsCount} of {skills.length} available)</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-slate-400 italic text-[11px]">
+            <span>(No active industry benchmarks published for current skills)</span>
+          </div>
+        )}
       </div>
     </div>
   );

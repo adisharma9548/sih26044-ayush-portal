@@ -1,4 +1,7 @@
 import { searchRoadmapsForLaggingSkills, RoadmapGuidance } from './roadmapService';
+import { getBenchmarkForSkill } from './benchmarkService';
+import { LearningProgram } from '../models/LearningProgram';
+import { calculatePriority } from '../config/scoringPolicy';
 
 export interface DiagnosticQuestion {
   id: number;
@@ -13,7 +16,9 @@ export interface DiagnosticQuestion {
 export interface SkillRadarItem {
   subject: string;
   score: number;
-  benchmark: number;
+  benchmark: number | null;
+  benchmarkStatus?: 'available' | 'insufficient_data';
+  reason?: string;
 }
 
 export interface DiagnosticEvaluation {
@@ -41,65 +46,7 @@ export interface StudyTimelineResult {
   roadmaps?: RoadmapGuidance[];
 }
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const PRIMARY_MODEL = 'openai/gpt-oss-120b';
-const FALLBACK_MODEL = 'openai/gpt-oss-20b';
-
-async function callGroq(prompt: string, jsonMode: boolean = true): Promise<any> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    throw new Error('GROQ_API_KEY is not configured');
-  }
-
-  const models = [PRIMARY_MODEL, FALLBACK_MODEL];
-  let lastError: any = null;
-
-  for (const model of models) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
-    try {
-      const res = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are an expert academic evaluator and skill diagnostic engine for university students (covering B.Tech Engineering, Computer Science, Health-Tech, and Ayush medical sciences). Always respond with strictly valid JSON only. Do not include markdown code blocks or text outside the JSON.',
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.3,
-        }),
-      });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Groq HTTP ${res.status}: ${errText}`);
-      }
-
-      const data: any = await res.json();
-      const content = data.choices?.[0]?.message?.content?.trim() || '';
-
-      // Clean markdown code fence if present
-      const cleaned = content.replace(/^```(json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-      return JSON.parse(cleaned);
-    } catch (err: any) {
-      clearTimeout(timeoutId);
-      lastError = err;
-      console.warn(`[Groq AI ${model} Notice]: ${err.message}. Trying next model if available.`);
-    }
-  }
-
-  throw lastError;
-}
+import { callGroq } from './aiClient';
 
 export interface DynamicSpecializationResponse {
   degree: string;
@@ -225,37 +172,7 @@ export const evaluateDiagnosticAnswers = async (
 
   const authenticScore = answers.length > 0 ? Math.round((correctCount / answers.length) * 100) : 0;
 
-  const prompt = `A university student in "${degree}" completed an academic diagnostic assessment and answered ${correctCount} out of ${answers.length} questions correctly, obtaining an overall score of ${authenticScore}%.
-Answer categories evaluated: ${answers.map((a) => a.category).join(', ')}.
-Compute an academic skill evaluation as a JSON object with:
-- "overallScore": number (${authenticScore})
-- "radar": array of 6 objects { "subject": string, "score": number (0-100 reflecting actual competency), "benchmark": number (70-85) } representing 6 core competency domains for ${degree}.
-- "strengths": array of 2 strings representing their strongest competencies.
-- "gaps": array of 2-3 objects { "skill": string, "gapPercentage": number (0-100), "priority": "High" | "Medium" | "Low" }.
-- "recommendations": array of 3 objects { "title": string, "provider": string, "duration": string, "type": "Bridge Course" | "Advanced Module" }`;
-
-  try {
-    const result = await callGroq(prompt);
-    if (result && result.radar && Array.isArray(result.radar) && result.radar.length >= 5) {
-      return {
-        overallScore: authenticScore,
-        radar: result.radar.map((r: any) => ({
-          subject: r.subject || 'Core Domain',
-          score: Math.min(100, Math.max(0, Number(r.score) || 0)),
-          benchmark: Math.min(100, Math.max(50, Number(r.benchmark) || 75)),
-        })),
-        strengths: result.strengths || ['Technical Problem Solving', 'Core Foundational Concepts'],
-        gaps: result.gaps || [{ skill: 'Advanced Industry Architecture', gapPercentage: 100 - authenticScore, priority: 'High' }],
-        recommendations: result.recommendations || [
-          { title: 'Industry Bridge Specialization', provider: 'National Ayush & Tech Portal', duration: '4 Weeks', type: 'Bridge Course' },
-        ],
-      };
-    }
-  } catch (err: any) {
-    console.warn('[AI Service Notice] Groq evaluation fallback used:', err.message);
-  }
-
-  // Authentic heuristic evaluation derived directly from candidate answers
+  // Authentic evaluation derived directly from candidate answers and database benchmarks
   const categoryStats: Record<string, { correct: number; total: number }> = {};
   answers.forEach((a) => {
     const cat = a.category || 'General';
@@ -269,74 +186,99 @@ Compute an academic skill evaluation as a JSON object with:
     }
   });
 
-  const isTechnical = degree.toLowerCase().includes('tech') || degree.toLowerCase().includes('computer');
-  const baseSubjects = isTechnical
-    ? [
-        { subject: 'Algorithms & Data Structures', benchmark: 80 },
-        { subject: 'Full-Stack Web & APIs', benchmark: 75 },
-        { subject: 'Database & Cloud Architecture', benchmark: 78 },
-        { subject: 'System Design & OS', benchmark: 72 },
-        { subject: 'Machine Learning & Analytics', benchmark: 70 },
-        { subject: 'DevOps & CI/CD Pipeline', benchmark: 68 },
-      ]
-    : [
-        { subject: 'Dravyaguna (Herbal Taxonomy)', benchmark: 82 },
-        { subject: 'Phytochemical QC & Fingerprinting', benchmark: 75 },
-        { subject: 'Rasashastra & Bhaishajya Formulations', benchmark: 80 },
-        { subject: 'Clinical Trials & GCP Protocol', benchmark: 74 },
-        { subject: 'Ayush-GMP (Schedule T Standards)', benchmark: 76 },
-        { subject: 'Preclinical Pharmacodynamics', benchmark: 72 },
-      ];
+  const assessedCategories = Object.keys(categoryStats);
+  const categoriesToEvaluate =
+    assessedCategories.length > 0
+      ? assessedCategories
+      : [degree || 'General Competency'];
 
-  const radarCategories = baseSubjects.map((b) => {
-    const matchedCategory = Object.keys(categoryStats).find(
-      (c) => c.toLowerCase().includes(b.subject.toLowerCase()) || b.subject.toLowerCase().includes(c.toLowerCase())
-    );
-    let catScore = authenticScore;
-    if (matchedCategory && categoryStats[matchedCategory].total > 0) {
-      catScore = Math.round((categoryStats[matchedCategory].correct / categoryStats[matchedCategory].total) * 100);
-    }
-    return {
-      subject: b.subject,
-      score: Math.min(100, Math.max(0, catScore)),
-      benchmark: b.benchmark,
-    };
-  });
+  // Sourced dynamically from benchmarkService (genuine DB benchmarks, null if unbenchmarked)
+  const radarCategories: SkillRadarItem[] = await Promise.all(
+    categoriesToEvaluate.map(async (catName) => {
+      const stat = categoryStats[catName];
+      const catScore =
+        stat && stat.total > 0
+          ? Math.round((stat.correct / stat.total) * 100)
+          : authenticScore;
 
-  const laggingSkills = radarCategories.filter((r) => r.score < r.benchmark);
-  const leadingSkills = radarCategories.filter((r) => r.score >= r.benchmark);
+      const benchmarkResult = await getBenchmarkForSkill(catName);
+
+      return {
+        subject: catName,
+        score: Math.min(100, Math.max(0, catScore)),
+        benchmark: benchmarkResult.available ? benchmarkResult.benchmarkLevel : null,
+        benchmarkStatus: benchmarkResult.available ? ('available' as const) : ('insufficient_data' as const),
+        reason: benchmarkResult.reason,
+      };
+    })
+  );
+
+  const laggingSkills = radarCategories.filter(
+    (r) => r.benchmark !== null && r.score < r.benchmark
+  );
+  const leadingSkills = radarCategories.filter(
+    (r) => (r.benchmark !== null && r.score >= r.benchmark) || (r.benchmark === null && r.score >= 70)
+  );
 
   const gaps = laggingSkills.length > 0
-    ? laggingSkills.slice(0, 3).map((s) => ({
-        skill: s.subject,
-        gapPercentage: Math.max(5, s.benchmark - s.score),
-        priority: (s.benchmark - s.score) >= 25 ? ('High' as const) : ('Medium' as const),
-      }))
-    : [{ skill: 'Specialized Advanced Research', gapPercentage: 10, priority: 'Low' as const }];
+    ? laggingSkills.slice(0, 3).map((s) => {
+        const gap = s.benchmark !== null ? Math.max(1, s.benchmark - s.score) : 0;
+        return {
+          skill: s.subject,
+          gapPercentage: gap,
+          priority: calculatePriority(gap) || ('Medium' as const),
+        };
+      })
+    : [];
 
-  const strengths = leadingSkills.length > 0
-    ? leadingSkills.slice(0, 2).map((s) => s.subject)
-    : [isTechnical ? 'Foundational Computational Concepts' : 'Foundational Pharmacological Concepts'];
+  let strengths = leadingSkills.map((s) => s.subject);
+  if (strengths.length === 0 && assessedCategories.length > 0) {
+    try {
+      const prompt = `A university student in "${degree}" achieved an overall score of ${authenticScore}% across the following assessed subjects: ${assessedCategories.join(', ')}.
+Provide 2 short descriptive phrases (3-5 words each) representing the student's core competency areas or positive foundational takeaways based strictly on these subjects.
+Return JSON: { "strengths": ["Strength 1", "Strength 2"] }`;
+      const aiStrengths = await callGroq(prompt);
+      if (aiStrengths && Array.isArray(aiStrengths.strengths) && aiStrengths.strengths.length > 0) {
+        strengths = aiStrengths.strengths.slice(0, 2);
+      }
+    } catch {
+      strengths = [categoriesToEvaluate[0] || 'Core Conceptual Fundamentals'];
+    }
+  }
 
   const gapSkills = gaps.map((g) => g.skill);
   const roadmaps = await searchRoadmapsForLaggingSkills(gapSkills, degree);
+
+  // Recommendations: Sourced dynamically from MongoDB LearningProgram items matching lagging skills
+  let recommendations: { title: string; provider: string; duration: string; type: string }[] = [];
+  try {
+    if (gapSkills.length > 0) {
+      const matchingPrograms = await LearningProgram.find({
+        isArchived: { $ne: true },
+        skillsCovered: {
+          $in: gapSkills.map((gs) => new RegExp(gs.trim(), 'i')),
+        },
+      })
+        .limit(3)
+        .lean();
+
+      recommendations = matchingPrograms.map((p: any) => ({
+        title: p.title,
+        provider: p.provider,
+        duration: p.duration,
+        type: p.type === 'workshop' ? 'Hands-On Lab' : p.type === 'course' ? 'Self-Paced Course' : 'Certification',
+      }));
+    }
+  } catch (progErr: any) {
+    console.warn('[AI Service Notice] LearningProgram query error:', progErr.message);
+  }
 
   return {
     overallScore: authenticScore,
     radar: radarCategories,
     strengths,
     gaps,
-    recommendations: isTechnical
-      ? [
-          { title: 'Full-Stack Cloud & DevOps Mastery', provider: 'IIT Delhi & AICTE', duration: '6 Weeks', type: 'Advanced Module' },
-          { title: 'Scalable Microservices with Node.js & Docker', provider: 'Ministry Tech Cell', duration: '4 Weeks', type: 'Bridge Course' },
-          { title: 'Bioinformatics & Machine Learning Pipeline', provider: 'CDAC & Ayush Grid', duration: '3 Weeks', type: 'Bridge Course' },
-        ]
-      : [
-          { title: 'Advanced Phytochemical Characterization (HPTLC & GC-MS)', provider: 'National Ayush R&D & AIIA', duration: '4 Weeks', type: 'Bridge Course' },
-          { title: 'Good Clinical Practice (GCP) for Ayush Clinical Trials', provider: 'CCRAS New Delhi', duration: '3 Weeks', type: 'Bridge Course' },
-          { title: 'Ayush-GMP Regulatory Auditing & Schedule T Compliance', provider: 'National Institute of Ayurveda', duration: '5 Weeks', type: 'Advanced Module' },
-        ],
+    recommendations,
     mandatoryNotice: 'The Competency Assessment Test is mandatory before applying for any upcoming or ongoing internships or jobs.',
     roadmaps,
   };
@@ -968,8 +910,8 @@ Experience: "${experience || 'Not provided'}"
 Evaluate the technical synergy and return on investment for the enterprise.
 Return strictly valid JSON:
 {
-  "synergyScore": 88,
-  "verdict": "Highly Recommended",
+  "synergyScore": number (0-100),
+  "verdict": "Highly Recommended" | "Recommended with Revisions" | "Under Consideration",
   "strengths": ["Clear strength 1", "Clear strength 2"],
   "industrialFeasibility": "Concise 1-2 sentence assessment of commercial and laboratory feasibility.",
   "academicImpact": "Concise 1-2 sentence assessment of student mentorship and institutional value.",
@@ -985,19 +927,43 @@ Return strictly valid JSON:
     console.warn('[AI Service Notice] Proposal synergy evaluation fallback:', err.message);
   }
 
+  // Deterministic fallback based on requirements keyword alignment
+  const reqs = Array.isArray(requirements) ? requirements : [];
+  const text = `${proposalText} ${experience || ''}`.toLowerCase();
+  let matchedCriteriaCount = 0;
+
+  reqs.forEach((r) => {
+    const words = r.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    if (words.some((w) => text.includes(w))) {
+      matchedCriteriaCount++;
+    }
+  });
+
+  const calculatedSynergy =
+    reqs.length > 0
+      ? Math.min(95, Math.max(30, Math.round((matchedCriteriaCount / reqs.length) * 100)))
+      : Math.min(85, Math.max(40, Math.round((proposalText.length / 500) * 80)));
+
+  const verdict =
+    calculatedSynergy >= 80
+      ? 'Highly Recommended'
+      : calculatedSynergy >= 60
+      ? 'Recommended with Revisions'
+      : 'Under Consideration';
+
   return {
-    synergyScore: 88,
-    verdict: 'Highly Recommended',
+    synergyScore: calculatedSynergy,
+    verdict,
     strengths: [
-      'Strong alignment between proposed methodology and enterprise technical focus',
-      'Well-defined student training and curriculum modernization plan',
+      'Alignment between proposed methodology and enterprise technical focus',
+      'Demonstrated academic research foundation and institutional mentorship capacity',
     ],
     industrialFeasibility:
-      'The proposed protocol leverages standard industrial equipment and fits the tenure duration well.',
+      'The proposed protocol conforms to standard industrial equipment and project scope.',
     academicImpact:
-      'Offers high institutional value with planned curriculum modules and student research co-authorship.',
+      'Offers institutional value with planned curriculum modules and student research co-authorship.',
     recommendedAction:
-      'Schedule a live WebRTC technical discussion to review equipment access and project milestones.',
+      'Schedule a technical discussion to review equipment access, milestones, and deliverables.',
   };
 };
 
@@ -1096,7 +1062,7 @@ Return strictly valid JSON:
 {
   "subtitle": "A concise, engaging 1-sentence mission statement summarizing how this ${formatLabel} bridges university scholar competency gaps in ${domain}.",
   "marketInsight": "A sharp 2-sentence labor market intelligence summary highlighting current corporate recruitment demands, hiring velocity, or technological breakthroughs.",
-  "gapStatistic": "A realistic data point such as '78% of graduating engineering scholars lack production-grade experience in this domain'",
+  "gapStatistic": "A factual market trend statement regarding practical competency demand in this domain",
   "trendingTopics": ["Topic 1", "Topic 2", "Topic 3", "Topic 4"],
   "emergingDomains": ["Emerging Interdisciplinary Track 1", "Emerging Track 2", "Emerging Track 3"]
 }`;
@@ -1110,7 +1076,7 @@ Return strictly valid JSON:
           result.marketInsight ||
           `High corporate demand observed across accredited universities for practical ${domain} capabilities.`,
         gapStatistic:
-          result.gapStatistic || `75% of academic applicants show competency deficits in applied ${domain}.`,
+          result.gapStatistic || `Corporate recruitment signals emphasize hands-on competency in applied ${domain}.`,
         trendingTopics: result.trendingTopics.slice(0, 5),
         emergingDomains: Array.isArray(result.emergingDomains) ? result.emergingDomains.slice(0, 4) : [],
       };
@@ -1124,7 +1090,7 @@ Return strictly valid JSON:
       provider || 'Enterprise Industry Leaders'
     }.`,
     marketInsight: `Accelerated enterprise demand for verified ${domain} competencies across modern software and bio-pharma engineering clusters.`,
-    gapStatistic: `73% of university applicants require practical toolchain and sandbox exposure in ${domain}.`,
+    gapStatistic: `Industry recruiters prioritize practical toolchain and sandbox exposure in ${domain}.`,
     trendingTopics: [
       `${domain} Core Fundamentals & Tooling`,
       'Production Architecture & Scalability',

@@ -40,7 +40,7 @@ interface Question {
 
 interface EvaluationResult {
   overallScore: number;
-  radar: { subject: string; score: number; benchmark: number }[];
+  radar: { subject: string; score: number; benchmark: number | null; benchmarkStatus?: string; reason?: string }[];
   strengths: string[];
   gaps: { skill: string; gapPercentage: number; priority: string }[];
   recommendations: { title: string; provider: string; duration: string; type: string }[];
@@ -1002,13 +1002,17 @@ export const AiOnboardingModal: React.FC<Props> = ({
               <div className="md:col-span-8 flex items-center justify-center overflow-hidden">
                 <RadarChart
                   size={320}
-                  skills={evaluation.radar.map((r) => ({
-                    name: r.subject,
-                    level: r.score,
-                    industryBenchmark: r.benchmark,
-                    verified: true,
-                    category: 'General' as const,
-                  }))}
+                  skills={evaluation.radar.map((r) => {
+                    const isVerified = evaluation.overallScore >= 60 && strikes === 0;
+                    return {
+                      name: r.subject,
+                      level: r.score,
+                      industryBenchmark: r.benchmark ?? null,
+                      verified: isVerified,
+                      verificationStatus: isVerified ? ('verified' as const) : ('unverified' as const),
+                      category: 'General' as const,
+                    };
+                  })}
                 />
               </div>
             </div>

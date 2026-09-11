@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { User } from '../models/User';
 import { uploadToCloudinary } from '../config/cloudinary';
+import { handleAcademicProfileUpdate } from '../services/academicContextService';
 
 export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
@@ -63,10 +64,21 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       user = found;
     }
 
+    // Authoritative Academic Invalidation: If degree, department, institution, or specialization changed,
+    // atomically archive existing competencies, mark assessment attempts as non-current,
+    // clear stale study roadmaps, and set current radar to 'not_assessed'.
+    const academicResult = await handleAcademicProfileUpdate(user, sanitizedUpdates);
+
     Object.assign(user, sanitizedUpdates);
     await user.save();
 
-    res.json({ data: user.toSafeObject() });
+    res.json({
+      data: {
+        ...user.toSafeObject(),
+        academicContextChanged: academicResult.changed,
+        academicContextVersion: user.academicContextVersion,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to update profile' } });
   }

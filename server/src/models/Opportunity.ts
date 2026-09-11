@@ -1,5 +1,12 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface ISkillRequirement {
+  name: string;
+  requiredLevel: number;
+  importance?: 'critical' | 'high' | 'medium' | 'low';
+  weight?: number;
+}
+
 export interface IOpportunity extends Document {
   title: string;
   type: 'internship' | 'job';
@@ -12,6 +19,7 @@ export interface IOpportunity extends Document {
   duration?: string;
   experienceLevel?: string;
   skillsRequired: string[];
+  skillRequirements?: ISkillRequirement[];
   description: string;
   responsibilities: string[];
   requirements: string[];
@@ -36,6 +44,14 @@ const OpportunitySchema: Schema = new Schema(
     duration: { type: String },
     experienceLevel: { type: String },
     skillsRequired: [{ type: String, index: true }],
+    skillRequirements: [
+      {
+        name: { type: String, required: true },
+        requiredLevel: { type: Number, required: true, min: 0, max: 100 },
+        importance: { type: String, enum: ['critical', 'high', 'medium', 'low'], default: 'medium' },
+        weight: { type: Number, default: 1.0 },
+      },
+    ],
     description: { type: String, required: true },
     responsibilities: [{ type: String }],
     requirements: [{ type: String }],

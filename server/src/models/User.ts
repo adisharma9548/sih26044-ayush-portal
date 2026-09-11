@@ -44,6 +44,9 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   verified: boolean;
   requiresPasswordReset?: boolean;
+  passwordChangedAt?: Date;
+  academicContextHash?: string;
+  academicContextVersion?: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -88,6 +91,9 @@ const UserSchema: Schema = new Schema(
     isEmailVerified: { type: Boolean, default: false },
     verified: { type: Boolean, default: true },
     requiresPasswordReset: { type: Boolean, default: false },
+    passwordChangedAt: { type: Date },
+    academicContextHash: { type: String, default: '' },
+    academicContextVersion: { type: Number, default: 1 },
   },
   { timestamps: true }
 );

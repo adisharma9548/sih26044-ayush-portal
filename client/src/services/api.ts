@@ -211,6 +211,20 @@ export const authService = {
     });
   },
 
+  verifyResetOtp: async (email: string, otp: string): Promise<{ data: { success: boolean; resetToken: string; message: string } }> => {
+    return apiRequest('/auth/verify-reset-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
+  resetPasswordWithToken: async (payload: { resetToken: string; newPassword: string }): Promise<{ data: { success: boolean; message: string } }> => {
+    return apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   resetPasswordWithOtp: async (data: { email: string; otp: string; newPassword: string }): Promise<{ data: { success: boolean; message: string } }> => {
     return apiRequest('/auth/reset-password', {
       method: 'POST',
@@ -357,6 +371,11 @@ export const skillService = {
 export const learningService = {
   getAll: async (): Promise<{ data: LearningProgram[] }> => {
     return apiRequest('/learning/programs');
+  },
+
+  getRecommendations: async (userId?: string): Promise<{ data: { recommendations: LearningProgram[]; roadmaps?: any[]; hasGaps: boolean; message?: string; totalGaps?: number } }> => {
+    const qs = userId ? `?userId=${userId}` : '';
+    return apiRequest(`/learning/recommendations${qs}`);
   },
 
   enroll: async (programId: string): Promise<{ data: { success: boolean; message: string } }> => {

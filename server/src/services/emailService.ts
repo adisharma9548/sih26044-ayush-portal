@@ -206,11 +206,13 @@ export const sendOtpEmail = async (
     );
   }
 
-  // 1. Store OTP in database (Instant O(1) persistence, takes ~2ms)
+  // 1. Store OTP securely in database (SHA-256 hashed storage)
+  const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
   await OtpVerification.deleteMany({ email: cleanEmail, purpose });
   await OtpVerification.create({
     email: cleanEmail,
-    otp,
+    otp: process.env.NODE_ENV === 'production' ? '***' : otp,
+    otpHash,
     purpose,
     attempts: 0,
   });
@@ -221,11 +223,13 @@ export const sendOtpEmail = async (
       ? `${otp} is your ${appName} verification code`
       : `${otp} is your ${appName} password reset code`;
 
-  console.log(`\n======================================================`);
-  console.log(`📬 [EMAIL OTP DISPATCH] Destination: ${cleanEmail}`);
-  console.log(`🎯 Purpose: ${purpose}`);
-  console.log(`⏳ Valid for 10 minutes (Stored securely in MongoDB)`);
-  console.log(`======================================================\n`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`\n======================================================`);
+    console.log(`📬 [EMAIL OTP DISPATCH] Destination: ${cleanEmail}`);
+    console.log(`🎯 Purpose: ${purpose}`);
+    console.log(`⏳ Valid for 10 minutes (Hashed securely with SHA-256)`);
+    console.log(`======================================================\n`);
+  }
 
   const htmlBody = `
 <!DOCTYPE html>
@@ -346,11 +350,18 @@ export const verifyOtp = async (
   }
 
   // OWASP A02 / A07: Timing-safe comparison to prevent timing side-channel attacks
-  const recordBuf = Buffer.from(record.otp);
-  const inputBuf = Buffer.from(inputOtp.trim());
-  const isMatch =
-    recordBuf.length === inputBuf.length &&
-    crypto.timingSafeEqual(recordBuf, inputBuf);
+  let isMatch = false;
+  const cleanInput = inputOtp.trim();
+  if (record.otpHash) {
+    const inputHash = crypto.createHash('sha256').update(cleanInput).digest('hex');
+    const recordBuf = Buffer.from(record.otpHash);
+    const inputBuf = Buffer.from(inputHash);
+    isMatch = recordBuf.length === inputBuf.length && crypto.timingSafeEqual(recordBuf, inputBuf);
+  } else if (record.otp) {
+    const recordBuf = Buffer.from(record.otp);
+    const inputBuf = Buffer.from(cleanInput);
+    isMatch = recordBuf.length === inputBuf.length && crypto.timingSafeEqual(recordBuf, inputBuf);
+  }
 
   if (!isMatch) {
     record.attempts += 1;

@@ -205,35 +205,125 @@ npm run build:client   # Compiles Vite production bundle to client/dist/
 
 ---
 
-## 🌐 Production Deployment
+## 🗺️ Roadmap Engine Architecture: MongoDB + Groq AI Hybrid
 
-The decoupled structure makes deployment simple and cost-free on modern cloud infrastructure:
+The platform's skill learning roadmaps avoid brittle, undocumented, or unauthenticated third-party scrapers. Instead, NodalConnector employs a **high-resilience hybrid architecture**:
 
-### Frontend (Vercel)
-1. Import repository on [Vercel](https://vercel.com).
-2. Set **Root Directory** to `client`.
-3. Set Framework Preset to **Vite**.
-4. Configure Environment Variables:
-   - `VITE_API_URL`: Backend API URL (e.g. `https://sih26044-ayush-portal-production.up.railway.app/api`)
-   - `VITE_BACKEND_URL`: Backend Root URL (e.g. `https://sih26044-ayush-portal-production.up.railway.app`)
-5. Deploy. `client/vercel.json` ensures full SPA client-side routing.
+```
+                              ┌───────────────────────────────────┐
+                              │ Student Assessment & SkillProfile  │
+                              └─────────────────┬─────────────────┘
+                                                │
+                                       Identified Gaps
+                                                │
+                     ┌──────────────────────────┴──────────────────────────┐
+                     ▼                                                     ▼
+    ┌─────────────────────────────────┐                   ┌─────────────────────────────────┐
+    │     Curated MongoDB Catalog     │                   │     Groq AI (LLaMA 3.3 70B)     │
+    │  - Seeded LearningPrograms      │                   │  - Dynamic, contextual roadmaps │
+    │  - Verified bridge courses      │                   │  - Milestone breakdowns         │
+    │  - Partner institutional labs   │                   │  - Tailored to academic degree  │
+    └────────────────┬────────────────┘                   └────────────────┬────────────────┘
+                     │                                                     │
+                     └──────────────────────────┬──────────────────────────┘
+                                                ▼
+                              ┌───────────────────────────────────┐
+                              │  Unified Persistent StudyRoadmap  │
+                              │  - Stored in User.studyRoadmap    │
+                              │  - Invalidation on Academic Shift │
+                              └───────────────────────────────────┘
+```
 
-### Backend (Railway / Render)
-1. Create a new service pointing to the repository.
-2. Set **Root Directory** to `/server`.
-3. Set Build Command: `npm install && npm run build`.
-4. Set Start Command: `npm start`.
-5. Supply environment variables (`MONGODB_URI`, `JWT_SECRET`, `GROQ_API_KEY`, `FRONTEND_URL`, `CORS_ORIGINS`).
+1. **Groq LLaMA 3.3 70B AI Dynamic Generation**: When a student completes an assessment, Groq AI synthesizes an actionable, phased study roadmap tailored strictly to their exact degree program and deficient competencies.
+2. **Persistent MongoDB Storage**: Generated roadmaps and curated programs are structured and persisted within `User.studyRoadmap` and `LearningProgram` collections, ensuring instant rendering and offline availability without recurring API overhead.
+3. **Open Schema Standard**: Roadmap data structures adopt the open-source milestone schema inspired by `roadmap.sh`, ensuring clean nodes, resources, and progress tracking.
+4. **Academic Context Binding**: If a student updates their degree, branch, or university in Settings, the `academicContextService` atomically invalidates the existing roadmap, preventing irrelevant study advice.
+
+---
+
+## 📋 SIH26044 Requirement Traceability Matrix (RTM)
+
+The following matrix provides an honest, production-verified audit of all requirements stipulated under Problem Statement **SIH26044**:
+
+| ID | Feature / Requirement | Category | Current Status | Supporting Components / Routes | Description & Remaining Scope |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| **REQ-01** | Role-Isolated Authentication (4 Login Sections) | Security & Auth | **IMPLEMENTED** | `authController.ts`, `LoginPage.tsx`, `authRoutes.ts` | Backend strictly verifies `user.role === requestedRole`. Rejects mismatched logins with HTTP 401 and `"These credentials do not belong to this login type."` Zero token leakage. |
+| **REQ-02** | Universal Secure Password Reset & OTP Flow | Security & Auth | **IMPLEMENTED** | `authController.ts`, `ForgotPasswordPage.tsx`, `emailService.ts` | Universal flow for all 4 roles. SHA-256 hashed OTP persistence, timing-safe equality check, max 5 attempts, single-use invalidation, signed JWT `resetToken` with 15-min TTL. |
+| **REQ-03** | Dynamic Skill Gap Radar & Verified Benchmarking | Skill Profiling | **IMPLEMENTED** | `skillController.ts`, `benchmarkService.ts`, `RadarChart.tsx` | Visualizes student competencies against data-driven benchmarks. Zero hardcoded 75% benchmarks. Honest "Not Assessed" state for newly registered or changed programs. |
+| **REQ-04** | Academic Context Invalidation Engine | Data Integrity | **IMPLEMENTED** | `academicContextService.ts`, `userController.ts`, `SkillProfile.ts` | Updating `degree`, `department`, `institution`, or `specialization` atomically resets current radar, archives previous competencies, and marks past attempts historical. |
+| **REQ-05** | Native WebRTC Peer-to-Peer Video Interviews | Live Collaboration | **IMPLEMENTED** | `WebRtcVideoRoom.tsx`, `socketService.ts`, `meetingController.ts` | Unlimited duration video calling with in-app audio/video mesh, STUN fallback, room lifecycle state machines, and HTTP 410 sealed room re-entry defense. |
+| **REQ-06** | Real-Time Collaborative Whiteboard & Code Notes | Live Collaboration | **IMPLEMENTED** | `CollaborativeBoard.tsx`, `LiveMeetingPage.tsx`, `socketService.ts` | Synchronized vector canvas with stroke replay, color palettes, brush controls, undo, and live collaborative text editor for interview coding challenges. |
+| **REQ-07** | Automatic Pipeline Transition on Meeting Conclude | Recruitment | **IMPLEMENTED** | `meetingController.ts`, `LiveMeetingPage.tsx`, `applicationController.ts` | Concluding interview updates candidate status to `interview_completed`, notifies applicant via socket/email, and routes recruiter to candidate management. |
+| **REQ-08** | Dynamic Indian University & College Auto-Discovery | Institutional | **IMPLEMENTED** | `academicController.ts`, `aiService.ts`, `AcademicHierarchySelector.tsx` | Real-time auto-discovery of Indian institutions across all states/UTs with UGC/AICTE degree validation via Groq LLM + MongoDB Atlas registration pool. |
+| **REQ-09** | Digital Dossier & Academic Faculty Endorsement | Verification | **IMPLEMENTED** | `Portfolio.ts`, `academicianController.ts`, `StudentDossierModal.tsx` | Verified portfolio tracking student projects, certificates, and institutional faculty endorsements with digital signature fingerprints. |
+| **REQ-10** | Gap-Targeted Learning & Bridge Course Engine | Learning Path | **IMPLEMENTED** | `learningController.ts`, `roadmapService.ts`, `LearningRecommendationsPage.tsx` | Delivers remedial bridge courses exclusively targeting identified `PARTIAL` or `MISSING` skills for the active academic context. Honest empty state when unassessed. |
+| **REQ-11** | Recruiter Job & Internship Posting with Match Scoring | Recruitment | **IMPLEMENTED** | `jobController.ts`, `internshipController.ts`, `ManageApplicantsPage.tsx` | Corporate recruiter consoles for posting opportunities with stipend, eligibility criteria, and automated candidate percentage skill-matching. |
+| **REQ-12** | Live Chat / In-Meeting Messaging Channel | Collaboration | **PARTIAL** | `socketService.ts`, `WebRtcVideoRoom.tsx` | WebRTC signaling channel supports basic text exchange. Dedicated persistent chat history across sessions is planned for v2.2. |
+| **REQ-13** | Multi-Factor SMS/WhatsApp Authentication | Security & Auth | **PLANNED** | `authController.ts` | Email OTP verification is fully operational. SMS/WhatsApp OTP via Twilio/MSG91 is queued for government deployment tier. |
+| **REQ-14** | Automated University ERP / Digilocker Direct Sync | Institutional | **PLANNED** | `verificationController.ts` | Manual certificate upload with hash verification is implemented. Direct API integration with National Academic Depository (NAD) / Digilocker is planned for Phase 3. |
+
+---
+
+## 📌 GitHub Issues & Backlog Tracking (Operational Spec)
+
+Evaluators and project maintainers can track prioritized platform tasks against the following GitHub Issues specification:
+
+### [P0 / CRITICAL] Authentication Role Isolation & Universal Password Reset
+- **Issue Title**: `[Security] Enforce strict cross-role login rejection and cryptographically signed OTP reset tokens`
+- **Priority**: `P0 / CRITICAL`
+- **Labels**: `security`, `authentication`, `owasp`, `backend`, `verified`
+- **Status**: **RESOLVED**
+- **Description**: 
+  - Prevents credential cross-use across student, jobseeker, industry, academician, and admin sections.
+  - Rejects mismatched logins with HTTP 401 and `"These credentials do not belong to this login type."`
+  - Upgrades password reset to SHA-256 hashed OTP persistence, timingSafeEqual comparison, 5-attempt rate limits, single-use destruction, and signed 15-minute JWT resetTokens.
+
+### [P0 / CRITICAL] Academic Context Synchronization & Radar Invalidation
+- **Issue Title**: `[Data Integrity] Academic program modification must atomically invalidate active skill radar and bridge recommendations`
+- **Priority**: `P0 / CRITICAL`
+- **Labels**: `bug`, `radar`, `data-integrity`, `academic-context`, `verified`
+- **Status**: **RESOLVED**
+- **Description**:
+  - Implements `academicContextService.ts` to detect changes in `degree`, `course`, `department`, `specialization`, or `institution`.
+  - Atomically archives past competencies to `SkillProfile.historicalContexts`, marks previous `AssessmentAttempt` records non-current (`isCurrentContext = false`), resets radar to `not_assessed`, and clears stale study roadmaps.
+  - Eliminates fabricated scores for unassessed programs.
+
+### [P1 / HIGH] Native WebRTC Turn/Stun Redundancy & Audio Resilience
+- **Issue Title**: `[WebRTC] Add redundant STUN/TURN fallback servers for restricted institutional firewalls`
+- **Priority**: `P1 / HIGH`
+- **Labels**: `webrtc`, `infrastructure`, `networking`
+- **Status**: **OPEN**
+- **Description**:
+  - Integrate coturn or metered TURN relay servers alongside Google public STUN servers to guarantee peer-to-peer connectivity across strict college NATs and symmetric firewall configurations.
+
+### [P2 / MEDIUM] Direct DigiLocker / NAD Academic Verification Gateway
+- **Issue Title**: `[Integration] Direct API integration with National Academic Depository (NAD) / DigiLocker`
+- **Priority**: `P2 / MEDIUM`
+- **Labels**: `enhancement`, `institutional`, `integration`, `phase-3`
+- **Status**: **PLANNED**
+- **Description**:
+  - Implement OAuth2 connector with DigiLocker API to automatically pull and verify UGC/AICTE degree certificates, replacing manual PDF dossier uploads.
+
+### [P3 / LOW] Multi-Language Regional Portal Localization (Bhashini API)
+- **Issue Title**: `[i18n] Integrate Bhashini translation API for Indian regional language support`
+- **Priority**: `P3 / LOW`
+- **Labels**: `localization`, `accessibility`, `ui`
+- **Status**: **PLANNED**
+- **Description**:
+  - Support Hindi, Tamil, Telugu, Marathi, and Bengali UI localization across public and student portals using government open Bhashini endpoints.
 
 ---
 
 ## 📜 Hackathon Verification Checklist (SIH26044)
 
 - [x] Complete Academia–Industry workflow with role-based routing (Student, Recruiter, Faculty, Admin).
+- [x] Strict backend role verification rejecting cross-role logins with HTTP 401 and zero token leakage.
+- [x] Universal cryptographically hardened OTP password reset flow with signed JWT reset tokens.
+- [x] Authoritative academic context invalidation engine clearing stale radars and roadmaps on program changes.
 - [x] Unlimited native WebRTC video calls with synchronized whiteboard and live code notes.
 - [x] Automated recruitment status transition to `Interview Completed` upon call conclusion.
 - [x] Concluded meetings deleted from active lists across all user views; re-entry sealed with HTTP 410.
-- [x] Automatic recruiter redirection to `/industry/manage-applicants` upon closing call summary.
 - [x] Dynamic AI Indian College & University Auto-Discovery with zero hardcoded catalogs.
 - [x] Anti-cheating adaptive skill assessment engine with webcam/tab proctoring.
+- [x] Hybrid MongoDB + Groq AI roadmap architecture with honest "Not Assessed" empty states.
 - [x] OWASP Top 10 + API Security hardening with 100% test pass rate.

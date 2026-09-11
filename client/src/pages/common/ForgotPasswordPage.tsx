@@ -7,6 +7,7 @@ export const ForgotPasswordPage: React.FC = () => {
   const [step, setStep] = useState<'email' | 'otp' | 'reset' | 'success'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +20,8 @@ export const ForgotPasswordPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.auth.resetPassword(email);
-      setMessage(res.data?.message || 'Verification code sent to your registered email.');
+      const res = await api.auth.resetPassword(email.trim().toLowerCase());
+      setMessage(res.data?.message || 'Verification code dispatched to your registered email.');
       setStep('otp');
     } catch (err: any) {
       setError(err.message || 'Failed to send reset code. Please check the email address.');
@@ -29,12 +30,27 @@ export const ForgotPasswordPage: React.FC = () => {
     }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.trim().length === 6) {
-      setStep('reset');
-    } else {
+    if (otp.trim().length !== 6) {
       setError('Please enter the full 6-digit security code.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await (api.auth as any).verifyResetOtp(email.trim().toLowerCase(), otp.trim());
+      const token = res.data?.resetToken;
+      if (!token) {
+        throw new Error('Verification failed: no authorization token issued.');
+      }
+      setResetToken(token);
+      setMessage(res.data?.message || 'Code verified. Please set your new password.');
+      setStep('reset');
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired verification code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -44,21 +60,25 @@ export const ForgotPasswordPage: React.FC = () => {
       setError('Passwords do not match.');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+    if (!resetToken) {
+      setError('Reset authorization missing. Please verify your OTP code first.');
+      setStep('otp');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await (api.auth as any).resetPasswordWithOtp({
-        email: email.trim().toLowerCase(),
-        otp: otp.trim(),
+      await (api.auth as any).resetPasswordWithToken({
+        resetToken,
         newPassword,
       });
       setStep('success');
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password. The code may be expired.');
+      setError(err.message || 'Failed to reset password. The reset session may have expired.');
     } finally {
       setLoading(false);
     }
@@ -135,9 +155,10 @@ export const ForgotPasswordPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors"
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
               >
-                Verify Code & Continue
+                {loading ? 'Verifying Code...' : 'Verify Code & Continue'}
               </button>
             </form>
           </div>
@@ -185,9 +206,10 @@ export const ForgotPasswordPage: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors"
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
               >
-                Update Password
+                {loading ? 'Updating Password...' : 'Update Password'}
               </button>
             </form>
           </div>

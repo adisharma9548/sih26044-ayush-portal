@@ -501,7 +501,9 @@ export const InstitutionalStudentsPage: React.FC = () => {
                           <div key={i} className="bg-white p-3 rounded-xl border border-slate-200/80 text-xs">
                             <div className="flex justify-between items-center mb-1.5 font-medium">
                               <span className="text-slate-800 font-semibold">{skill.name}</span>
-                              <span className="text-slate-500">{skill.level}% (Benchmark: {skill.industryBenchmark}%)</span>
+                              <span className="text-slate-500">
+                                {skill.level}% (Benchmark: {skill.industryBenchmark != null ? `${skill.industryBenchmark}%` : 'Unavailable'})
+                              </span>
                             </div>
                             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                               <div
@@ -536,7 +538,7 @@ export const InstitutionalStudentsPage: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-slate-600 mt-1 text-[11px]">
-                              Current level: {gap.currentLevel}% • Required: {gap.requiredLevel}%
+                              Current level: {gap.currentLevel}% • Required: {gap.requiredLevel != null ? `${gap.requiredLevel}%` : 'N/A (No Benchmark)'}
                             </p>
                           </div>
                         ))}

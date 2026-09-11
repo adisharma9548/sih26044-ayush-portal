@@ -5,6 +5,8 @@ import { Portfolio } from '../models/Portfolio';
 import { analyzeSkillGaps } from '../services/skillGapService';
 import { generateDiagnosticQuestions } from '../services/aiService';
 import { emitToUser } from '../services/socketService';
+import { getBenchmarkForSkill } from '../services/benchmarkService';
+import { SCORING_POLICY } from '../config/scoringPolicy';
 
 import { AuthRequest } from '../middleware/auth';
 
@@ -23,13 +25,51 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
         degree: req.user.degree || 'Technical Degree',
         overallScore: 0,
         rankPercentile: 0,
+        status: 'not_assessed',
+        academicContextHash: req.user.academicContextHash || '',
+        academicContextVersion: req.user.academicContextVersion || 1,
+        academicContext: {
+          degree: req.user.degree || '',
+          department: req.user.department || '',
+          specialization: req.user.specialization || '',
+          institution: req.user.institution || '',
+          academicField: req.user.academicField || '',
+        },
         skills: [],
         gapAnalysis: [],
       });
     }
 
-    if (!profile) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Skill profile not found' } });
+    if (profile) {
+      if (!profile.skills || profile.skills.length === 0) {
+        profile.status = 'not_assessed';
+        profile.overallScore = 0;
+        profile.rankPercentile = 0;
+        profile.gapAnalysis = [];
+      } else if (profile.status !== 'not_assessed') {
+        profile.status = 'current';
+      }
+
+      if (Array.isArray(profile.skills) && profile.skills.length > 0) {
+        let changed = false;
+        for (const skill of profile.skills) {
+          if (skill.industryBenchmark === undefined || skill.industryBenchmark === 75) {
+            const benchmarkData = await getBenchmarkForSkill(skill.name);
+            skill.industryBenchmark = benchmarkData.available ? benchmarkData.benchmarkLevel : null;
+            skill.benchmarkStatus = benchmarkData.available ? 'available' : 'insufficient_data';
+            skill.benchmarkSource = benchmarkData.source;
+            skill.benchmarkReason = benchmarkData.reason;
+            changed = true;
+          }
+          if (!skill.verificationStatus) {
+            skill.verificationStatus = skill.verified ? 'verified' : 'unverified';
+            changed = true;
+          }
+        }
+        if (changed) {
+          await profile.save().catch(() => {});
+        }
+      }
     }
 
     res.json({ data: profile });
@@ -148,12 +188,22 @@ export const submitAssessment = async (req: Request, res: Response) => {
     }
 
     // Record assessment attempt with proctoring audit metadata (resilient)
+    let attemptRecord: any = null;
     try {
-      await AssessmentAttempt.create({
+      attemptRecord = await AssessmentAttempt.create({
         userId: targetUserId,
         score: calculatedScore,
         answers: sanitizedAnswers,
         evaluatedAt: new Date(),
+        academicContextHash: authUser.academicContextHash || '',
+        academicContextVersion: authUser.academicContextVersion || 1,
+        academicContext: {
+          degree: authUser.degree || '',
+          department: authUser.department || '',
+          specialization: authUser.specialization || '',
+          institution: authUser.institution || '',
+        },
+        isCurrentContext: true,
         proctoring: proctoring
           ? {
               violationsCount: proctoring.violationsCount || 0,
@@ -166,6 +216,13 @@ export const submitAssessment = async (req: Request, res: Response) => {
     } catch (attemptErr: any) {
       console.warn('[submitAssessment] Non-fatal attempt logging warning:', attemptErr.message);
     }
+
+    // Determine if attempt qualifies as verified evidence per central security policy
+    const hasProctoring = proctoring && typeof proctoring.integrityScore === 'number';
+    const isProctoredValid =
+      hasProctoring &&
+      proctoring.integrityScore >= SCORING_POLICY.verification.minimumProctoringIntegrity &&
+      !proctoring.terminatedEarly;
 
     const totalAttempts = await AssessmentAttempt.countDocuments();
     const lowerScores = await AssessmentAttempt.countDocuments({ score: { $lt: calculatedScore } });
@@ -188,47 +245,86 @@ export const submitAssessment = async (req: Request, res: Response) => {
       profile.skills = [];
     }
 
-    // Update existing skills or append newly tested categories
+    // Update existing skills or append newly tested categories with data-driven benchmarks & evidence
     const existingSkillsMap = new Map(profile.skills.map((s) => [s.name.toLowerCase(), s]));
-    categoryScores.forEach((stats, catName) => {
+    for (const [catName, stats] of categoryScores.entries()) {
       const catScore = Math.round((stats.correct / Math.max(1, stats.total)) * 100);
+      const benchmarkData = await getBenchmarkForSkill(catName);
       const existing = existingSkillsMap.get(catName.toLowerCase());
+
+      const evidenceItem = isProctoredValid
+        ? {
+            sourceType: 'assessment' as const,
+            referenceId: attemptRecord ? attemptRecord._id.toString() : undefined,
+            verifiedAt: new Date(),
+            verifiedBy: 'Proctored Diagnostic Assessment Engine',
+            scoreOrRating: catScore,
+            notes: `Proctored test integrity score: ${proctoring.integrityScore}%`,
+          }
+        : null;
+
       if (existing) {
         existing.level = Math.max(existing.level || 0, catScore);
-        existing.verified = existing.level >= 60;
+        if (benchmarkData.available) {
+          existing.industryBenchmark = benchmarkData.benchmarkLevel;
+          existing.benchmarkStatus = 'available';
+          existing.benchmarkSource = benchmarkData.source;
+        } else if (existing.industryBenchmark === undefined) {
+          existing.industryBenchmark = null;
+          existing.benchmarkStatus = 'insufficient_data';
+          existing.benchmarkReason = benchmarkData.reason;
+        }
+
+        if (isProctoredValid && evidenceItem) {
+          if (!Array.isArray(existing.verificationSources)) {
+            existing.verificationSources = [];
+          }
+          existing.verificationSources.push(evidenceItem as any);
+          existing.verificationStatus = 'verified';
+          existing.verified = true;
+        }
       } else {
+        const verificationSources = isProctoredValid && evidenceItem ? [evidenceItem] : [];
         profile.skills.push({
           name: catName,
           level: catScore,
-          industryBenchmark: 75,
-          verified: catScore >= 60,
-          category: 'Assessment Verified',
+          industryBenchmark: benchmarkData.available ? benchmarkData.benchmarkLevel : null,
+          benchmarkStatus: benchmarkData.available ? 'available' : 'insufficient_data',
+          benchmarkSource: benchmarkData.source,
+          benchmarkReason: benchmarkData.reason,
+          verified: isProctoredValid,
+          verificationStatus: isProctoredValid ? 'verified' : 'unverified',
+          verificationSources,
+          category: 'Diagnostic Assessment',
         } as any);
       }
-    });
-
-    // Also update legacy Ayush skills if present
-    profile.skills.forEach((s) => {
-      if (s?.name && (s.name.includes('GMP') || s.name.includes('GCP') || s.name.includes('Phytochemistry'))) {
-        s.level = Math.max(s.level || 0, calculatedScore);
-        s.verified = calculatedScore >= 60;
-      }
-    });
+    }
 
     profile.overallScore = calculatedScore;
     profile.rankPercentile = rankPercentile;
     profile.lastAssessmentDate = new Date().toISOString().split('T')[0];
 
-    // Recalibrate gap analysis safely
+    // Recalibrate gap analysis safely for the student's actual assessed categories
     try {
-      const requiredDomains = Array.from(categoryScores.keys()).length > 0
-        ? Array.from(categoryScores.keys())
-        : ['Ayush-GMP & Regulatory Compliance', 'Good Clinical Practice (GCP) & Trials', 'Pharmacovigilance for Ayush Drugs'];
-      const gapResult = await analyzeSkillGaps(profile.skills, requiredDomains);
-      profile.gapAnalysis = gapResult.gapAnalysisList;
+      const assessedDomains = Array.from(categoryScores.keys());
+      if (assessedDomains.length > 0) {
+        const gapResult = await analyzeSkillGaps(profile.skills, assessedDomains);
+        profile.gapAnalysis = gapResult.gapAnalysisList;
+      }
     } catch (gapErr: any) {
       console.warn('[submitAssessment] Gap analysis warning:', gapErr.message);
     }
+
+    profile.status = 'current';
+    profile.academicContextHash = authUser.academicContextHash || '';
+    profile.academicContextVersion = authUser.academicContextVersion || 1;
+    profile.academicContext = {
+      degree: authUser.degree || '',
+      department: authUser.department || '',
+      specialization: authUser.specialization || '',
+      institution: authUser.institution || '',
+      academicField: authUser.academicField || '',
+    };
 
     await profile.save();
 

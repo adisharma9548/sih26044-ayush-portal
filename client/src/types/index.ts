@@ -84,18 +84,35 @@ export interface Job {
 export interface SkillItem {
   name: string;
   level: number; // 0 - 100
-  industryBenchmark: number; // 0 - 100
+  industryBenchmark?: number | null; // 0 - 100 or null if unavailable
+  benchmarkStatus?: 'available' | 'insufficient_data';
+  benchmarkSource?: string;
+  benchmarkReason?: string;
   verified: boolean;
-  category: 'Phytochemistry' | 'Clinical Practice' | 'Regulatory & GMP' | 'Research Methodology' | 'Pharmacovigilance' | 'General';
+  verificationStatus?: 'verified' | 'pending' | 'unverified';
+  verificationSources?: Array<{
+    sourceType: string;
+    referenceId?: string;
+    evidenceUrl?: string;
+    verifiedAt?: string;
+    verifiedBy?: string;
+    scoreOrRating?: number;
+    notes?: string;
+  }>;
+  category: string;
 }
+
+export type SkillGapStatus = 'MATCHED' | 'PARTIAL' | 'MISSING' | 'NO_BENCHMARK_DATA';
 
 export interface SkillGap {
   skill: string;
   currentLevel: number;
-  requiredLevel: number;
-  gapPercentage: number;
-  priority: 'High' | 'Medium' | 'Low';
+  requiredLevel?: number | null;
+  gapPercentage?: number | null;
+  status?: SkillGapStatus;
+  priority?: 'High' | 'Medium' | 'Low' | null;
   recommendedProgramId?: string;
+  reason?: string;
 }
 
 export interface SkillProfile {
@@ -104,7 +121,17 @@ export interface SkillProfile {
   rankPercentile: number;
   skills: SkillItem[];
   gapAnalysis: SkillGap[];
+  strengths?: string[];
   lastAssessmentDate: string;
+  status?: 'current' | 'stale' | 'not_assessed';
+  academicContextHash?: string;
+  academicContextVersion?: number;
+  academicContext?: {
+    degree?: string;
+    department?: string;
+    specialization?: string;
+    institution?: string;
+  };
 }
 
 export interface LearningProgram {
@@ -123,6 +150,10 @@ export interface LearningProgram {
   ayushDomain: string;
   cost: string;
   syllabus?: string[];
+  recommendationReason?: string;
+  targetedGapSkill?: string;
+  gapPriority?: string;
+  gapPercentage?: number | null;
 }
 
 export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'interview_completed' | 'offered' | 'rejected';

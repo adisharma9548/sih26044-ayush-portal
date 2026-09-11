@@ -6,6 +6,7 @@ import { Notification } from '../models/Notification';
 import { User } from '../models/User';
 import { emitToUser, emitBroadcast } from '../services/socketService';
 import { calculateCandidateOpportunityMatch } from '../services/matchingService';
+import { recordOpportunityBenchmark } from '../services/benchmarkService';
 
 export const getAllJobs = async (req: Request, res: Response) => {
   try {
@@ -84,6 +85,20 @@ export const createJob = async (req: Request, res: Response) => {
     });
 
     await newJob.save();
+
+    // Dynamically record/update industry skill benchmarks from this posting
+    if (Array.isArray(payload.skillRequirements)) {
+      for (const sr of payload.skillRequirements) {
+        if (sr && sr.name && typeof sr.requiredLevel === 'number') {
+          await recordOpportunityBenchmark(
+            sr.name,
+            sr.requiredLevel,
+            newJob._id.toString(),
+            newJob.ayushDomain
+          );
+        }
+      }
+    }
 
     emitBroadcast('opportunity:new', {
       type: 'job',
