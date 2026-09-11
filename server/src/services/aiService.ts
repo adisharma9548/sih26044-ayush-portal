@@ -98,38 +98,51 @@ export const generateDiagnosticQuestions = async (
   degree: string,
   domain?: string,
   targetDomain?: string,
-  specialization?: string
+  specialization?: string,
+  department?: string
 ): Promise<DiagnosticQuestion[]> => {
   const activeDegree = (degree || '').trim();
-  const activeSpecialization = (specialization || domain || '').trim();
+  const activeDepartment = (department || '').trim();
+  let activeSpecialization = (specialization || domain || '').trim();
   const activeTarget = (targetDomain || '').trim();
 
-  if (!activeDegree && !activeSpecialization) {
-    throw new Error('Degree or specialization is required to generate AI diagnostic questions.');
+  // If specialization is generic like "General" or empty, resolve to department or degree
+  if (!activeSpecialization || activeSpecialization.toLowerCase() === 'general') {
+    activeSpecialization = activeDepartment || activeDegree || 'Core Discipline';
   }
 
-  const combinedContext = `Degree: "${activeDegree || 'University Degree'}", Specialization/Discipline: "${activeSpecialization || 'Core Curriculum'}", Target Career Track: "${activeTarget || 'Industry Specialist'}"`;
+  if (!activeDegree && !activeSpecialization && !activeDepartment) {
+    throw new Error('Degree, department, or specialization is required to generate AI diagnostic questions.');
+  }
+
+  const academicProfile = [
+    `Degree Program: "${activeDegree || 'Academic Degree'}"`,
+    activeDepartment ? `Academic Department / Branch: "${activeDepartment}"` : null,
+    `Discipline / Specialization: "${activeSpecialization}"`,
+    activeTarget ? `Target Career Focus: "${activeTarget}"` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   const prompt = `You are a university academic examination director and subject-matter expert.
-Generate an adaptive 7-question multiple-choice technical/academic assessment tailored strictly to:
-${combinedContext}
+Generate an adaptive 7-question multiple-choice technical/academic assessment tailored STRICTLY and EXCLUSIVELY to the candidate's exact academic profile:
+${academicProfile}
 
-Strict Subject Alignment Rules:
-1. Questions MUST directly reflect the exact degree and specialization requested.
-   - For example:
-     - If the degree or specialization is Law / Constitutional Law, questions MUST strictly cover constitutional law, Article 21, Fundamental Rights, judicial review, Basic Structure Doctrine, writ jurisdiction, and landmark Supreme Court cases.
-     - If AYUSH / BAMS, questions MUST cover Dravyaguna, Schedule T GMP, Clinical Rog Nidan, or classical pharmacology.
-     - If Engineering / Computer Science, questions MUST cover Algorithms, Distributed Systems, Databases, or Cloud.
-     - If Pharmacy, cover Pharmacokinetics, Drug Design, QC & Pharmacology.
-     - If Management / MBA, cover Strategic Analysis, Corporate Finance, and Operations.
-2. The questions must progress through three clear difficulty tiers:
+MANDATORY DISCIPLINE ALIGNMENT REQUIREMENTS:
+1. Every single question and category MUST be 100% relevant to: ${activeSpecialization} (${activeDegree}${activeDepartment ? ' - ' + activeDepartment : ''}).
+2. ABSOLUTELY FORBIDDEN CROSS-DISCIPLINE CONTAMINATION:
+   - If this is an Engineering, Technology, or Computer Science program, questions MUST strictly cover Core Computer Science / Engineering principles (e.g. Data Structures, Algorithms, Databases, Operating Systems, Networks, Software Architecture, Distributed Systems). Under NO circumstances generate Law, Medicine, or Humanities questions.
+   - If this is a Law program (e.g. LL.B, LL.M), questions MUST strictly cover Jurisprudence, Constitutional Law, Corporate Law, etc.
+   - If this is an AYUSH / Medicine program (e.g. BAMS, MBBS), questions MUST cover Medical & Clinical sciences.
+   - Never mix questions from unrelated academic fields.
+3. The questions must progress through three clear difficulty tiers:
    - Questions 1 & 2: Basic / Foundational level
    - Questions 3, 4 & 5: Intermediate level
    - Questions 6 & 7: Advanced / Industry-grade level
 
 Return a JSON object with a key "questions" containing an array of 7 objects. Each object must have:
 - "id": number (1 to 7)
-- "category": string (specific sub-topic within this specialization)
+- "category": string (specific sub-topic within "${activeSpecialization}")
 - "difficulty": "Basic" | "Intermediate" | "Advanced"
 - "question": string (clear, academic, realistic problem-solving question)
 - "options": array of 4 distinct answer strings

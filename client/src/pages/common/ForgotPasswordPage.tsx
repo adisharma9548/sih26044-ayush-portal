@@ -39,7 +39,7 @@ export const ForgotPasswordPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await (api.auth as any).verifyResetOtp(email.trim().toLowerCase(), otp.trim());
+      const res = await api.auth.verifyResetOtp(email.trim().toLowerCase(), otp.trim());
       const token = res.data?.resetToken;
       if (!token) {
         throw new Error('Verification failed: no authorization token issued.');
@@ -72,7 +72,7 @@ export const ForgotPasswordPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await (api.auth as any).resetPasswordWithToken({
+      await api.auth.resetPasswordWithToken({
         resetToken,
         newPassword,
       });

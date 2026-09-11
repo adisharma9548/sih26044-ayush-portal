@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SkillProfile } from '../models/SkillProfile';
+import { User } from '../models/User';
 import { Question, AssessmentAttempt } from '../models/Assessment';
 import { Portfolio } from '../models/Portfolio';
 import { analyzeSkillGaps } from '../services/skillGapService';
@@ -7,46 +8,119 @@ import { generateDiagnosticQuestions } from '../services/aiService';
 import { emitToUser } from '../services/socketService';
 import { getBenchmarkForSkill } from '../services/benchmarkService';
 import { SCORING_POLICY } from '../config/scoringPolicy';
+import { computeAcademicContextHash } from '../services/academicContextService';
 
 import { AuthRequest } from '../middleware/auth';
 
 export const getProfile = async (req: AuthRequest, res: Response) => {
   try {
     const targetUserId = (req.query.userId as string) || (req.user ? req.user._id.toString() : undefined);
-    let profile;
-
-    if (targetUserId) {
-      profile = await SkillProfile.findOne({ userId: targetUserId });
+    if (!targetUserId) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'User ID is required' } });
     }
 
-    if (!profile && req.user) {
+    const targetUser = req.user && req.user._id.toString() === targetUserId ? req.user : await User.findById(targetUserId);
+    let profile = await SkillProfile.findOne({ userId: targetUserId });
+
+    if (!profile && targetUser) {
       profile = await SkillProfile.create({
-        userId: req.user._id.toString(),
-        degree: req.user.degree || 'Technical Degree',
+        userId: targetUser._id.toString(),
+        degree: targetUser.degree || 'Technical Degree',
         overallScore: 0,
         rankPercentile: 0,
         status: 'not_assessed',
-        academicContextHash: req.user.academicContextHash || '',
-        academicContextVersion: req.user.academicContextVersion || 1,
+        academicContextHash: targetUser.academicContextHash || '',
+        academicContextVersion: targetUser.academicContextVersion || 1,
         academicContext: {
-          degree: req.user.degree || '',
-          department: req.user.department || '',
-          specialization: req.user.specialization || '',
-          institution: req.user.institution || '',
-          academicField: req.user.academicField || '',
+          degree: targetUser.degree || '',
+          department: targetUser.department || '',
+          specialization: targetUser.specialization || '',
+          institution: targetUser.institution || '',
+          academicField: targetUser.academicField || '',
         },
         skills: [],
         gapAnalysis: [],
       });
     }
 
-    if (profile) {
-      if (!profile.skills || profile.skills.length === 0) {
+    if (profile && targetUser) {
+      // Academic context synchronization & self-healing:
+      // Compare user's active degree/hash with the profile's degree/hash
+      const userDegree = (targetUser.degree || '').trim().toLowerCase();
+      const profileDegree = (profile.degree || profile.academicContext?.degree || '').trim().toLowerCase();
+      const degreeMismatched = userDegree && profileDegree && userDegree !== profileDegree;
+      const hashMismatched = Boolean(
+        targetUser.academicContextHash &&
+        profile.academicContextHash &&
+        targetUser.academicContextHash !== profile.academicContextHash
+      );
+
+      if (degreeMismatched || hashMismatched) {
+        // Academic program was changed or diverged! Archive stale competencies
+        if (!profile.historicalContexts) {
+          profile.historicalContexts = [];
+        }
+        if (profile.skills && profile.skills.length > 0) {
+          profile.historicalContexts.push({
+            contextHash: profile.academicContextHash || '',
+            version: profile.academicContextVersion || 1,
+            degree: profile.degree || '',
+            department: profile.academicContext?.department || '',
+            specialization: profile.academicContext?.specialization || '',
+            institution: profile.academicContext?.institution || '',
+            archivedAt: new Date(),
+            skills: profile.skills,
+            overallScore: profile.overallScore || 0,
+            gapAnalysis: profile.gapAnalysis || [],
+          });
+        }
+
+        // Atomically reset active radar to not_assessed with zero fabricated numbers
+        profile.skills = [];
+        profile.gapAnalysis = [];
+        profile.overallScore = 0;
+        profile.rankPercentile = 0;
+        profile.strengths = [];
+        profile.status = 'not_assessed';
+        profile.degree = targetUser.degree || '';
+        profile.academicContextHash = targetUser.academicContextHash || computeAcademicContextHash(targetUser);
+        profile.academicContextVersion = targetUser.academicContextVersion || 1;
+        profile.academicContext = {
+          degree: targetUser.degree || '',
+          department: targetUser.department || '',
+          specialization: targetUser.specialization || '',
+          institution: targetUser.institution || '',
+          academicField: targetUser.academicField || '',
+        };
+        await profile.save();
+      } else if (profile.status === 'not_assessed') {
+        // Enforce invariant: not_assessed status MUST have 0 skills
+        if (profile.skills && profile.skills.length > 0) {
+          if (!profile.historicalContexts) profile.historicalContexts = [];
+          profile.historicalContexts.push({
+            contextHash: profile.academicContextHash || '',
+            version: profile.academicContextVersion || 1,
+            degree: profile.degree || '',
+            department: profile.academicContext?.department || '',
+            specialization: profile.academicContext?.specialization || '',
+            institution: profile.academicContext?.institution || '',
+            archivedAt: new Date(),
+            skills: profile.skills,
+            overallScore: profile.overallScore || 0,
+            gapAnalysis: profile.gapAnalysis || [],
+          });
+          profile.skills = [];
+          profile.gapAnalysis = [];
+          profile.overallScore = 0;
+          profile.rankPercentile = 0;
+          await profile.save();
+        }
+      } else if (!profile.skills || profile.skills.length === 0) {
         profile.status = 'not_assessed';
         profile.overallScore = 0;
         profile.rankPercentile = 0;
         profile.gapAnalysis = [];
-      } else if (profile.status !== 'not_assessed') {
+      } else {
         profile.status = 'current';
       }
 
@@ -80,15 +154,22 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
 
 export const getQuestions = async (req: Request, res: Response) => {
   try {
-    const degree = (req.query.degree as string) || (req as any).user?.degree || '';
-    const specialization =
+    const authUser = (req as AuthRequest).user;
+    const degree = (req.query.degree as string) || authUser?.degree || '';
+    const department = (req.query.department as string) || authUser?.department || '';
+    let specialization =
       (req.query.specialization as string) ||
       (req.query.category as string) ||
-      (req as any).user?.specialization ||
-      (req as any).user?.currentDomain ||
+      authUser?.specialization ||
+      authUser?.currentDomain ||
       '';
 
-    const aiQuestions = await generateDiagnosticQuestions(degree, specialization, undefined, specialization);
+    // If specialization is empty or generic like "General", resolve to department or degree
+    if (!specialization || specialization.toLowerCase() === 'general') {
+      specialization = department || degree || 'Core Discipline';
+    }
+
+    const aiQuestions = await generateDiagnosticQuestions(degree, specialization, undefined, specialization, department);
 
     // Persist verified questions to database so evaluation verifies against server authority
     for (const q of aiQuestions) {
@@ -239,6 +320,28 @@ export const submitAssessment = async (req: Request, res: Response) => {
         gapAnalysis: [],
         lastAssessmentDate: new Date().toISOString().split('T')[0],
       });
+    } else {
+      const userDegree = (authUser.degree || '').trim().toLowerCase();
+      const profileDegree = (profile.degree || '').trim().toLowerCase();
+      if (userDegree && profileDegree && userDegree !== profileDegree) {
+        if (!profile.historicalContexts) profile.historicalContexts = [];
+        if (profile.skills && profile.skills.length > 0) {
+          profile.historicalContexts.push({
+            contextHash: profile.academicContextHash || '',
+            version: profile.academicContextVersion || 1,
+            degree: profile.degree || '',
+            department: profile.academicContext?.department || '',
+            specialization: profile.academicContext?.specialization || '',
+            institution: profile.academicContext?.institution || '',
+            archivedAt: new Date(),
+            skills: profile.skills,
+            overallScore: profile.overallScore || 0,
+            gapAnalysis: profile.gapAnalysis || [],
+          });
+        }
+        profile.skills = [];
+        profile.gapAnalysis = [];
+      }
     }
 
     if (!Array.isArray(profile.skills)) {

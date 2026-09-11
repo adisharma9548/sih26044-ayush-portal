@@ -4,6 +4,7 @@ import { AuthRequest } from '../middleware/auth';
 import { User } from '../models/User';
 import { uploadToCloudinary } from '../config/cloudinary';
 import { handleAcademicProfileUpdate } from '../services/academicContextService';
+import { OtpVerification } from '../models/OtpVerification';
 
 export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
@@ -183,9 +184,11 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     }
 
     const { currentPassword, newPassword } = req.body;
-    const requestedUserId = req.params.userId;
+    const rawParamId = req.params.userId;
+    // Normalize: if the route matched /users/password, rawParamId is 'password' or undefined
+    const requestedUserId = rawParamId && rawParamId !== 'password' ? rawParamId : undefined;
 
-    // OWASP A01: IDOR check - users can only change their own password
+    // OWASP A01: IDOR check - users can only change their own password unless admin
     if (requestedUserId && requestedUserId !== req.user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You can only change your own password' } });
     }
@@ -211,8 +214,12 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     }
 
     user.password = newPassword;
+    user.passwordChangedAt = new Date();
     user.requiresPasswordReset = false;
     await user.save();
+
+    // Invalidate any active reset OTP records
+    await OtpVerification.deleteMany({ email: user.email.toLowerCase() }).catch(() => {});
 
     res.json({
       data: {

@@ -7,8 +7,8 @@ const router = Router();
 
 router.get('/candidates', authenticate, getCandidates);
 router.put('/:userId/profile', authenticate, updateProfile);
-router.patch('/:userId/password', authenticate, changePassword);
 router.patch('/password', authenticate, changePassword);
+router.patch('/:userId/password', authenticate, changePassword);
 router.post('/upload', authenticate, upload.single('file'), uploadDocument);
 router.post('/avatar', authenticate, upload.single('avatar'), uploadAvatar);
 router.delete('/avatar', authenticate, removeAvatar);

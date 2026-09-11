@@ -36,7 +36,7 @@ export const SkillProfilePage: React.FC = () => {
     );
   }
 
-  const isUnassessed = profile.skills.length === 0 || profile.status === 'not_assessed';
+  const isUnassessed = !profile.skills || profile.skills.length === 0 || profile.status === 'not_assessed';
 
   return (
     <div className="space-y-8">
@@ -92,7 +92,7 @@ export const SkillProfilePage: React.FC = () => {
             </p>
           </div>
 
-          {profile.skills.length === 0 ? (
+          {isUnassessed ? (
             <div className="py-10 px-4 flex flex-col items-center justify-center text-center space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-100/70 text-amber-700 flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6" />
@@ -118,7 +118,7 @@ export const SkillProfilePage: React.FC = () => {
         <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-4">
           <h3 className="text-base font-bold text-slate-900">Verified Competencies Roster</h3>
           <div className="space-y-4 pt-1 max-h-[440px] overflow-y-auto pr-1">
-            {profile.skills.length === 0 ? (
+            {isUnassessed || profile.skills.length === 0 ? (
               <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl text-xs">
                 No individual skills registered yet. Take the diagnostic assessment to calibrate your competencies.
               </div>
@@ -204,7 +204,7 @@ export const SkillProfilePage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {profile.gapAnalysis.length === 0 ? (
+              {isUnassessed || profile.gapAnalysis.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     No gaps recorded yet. Take the diagnostic assessment to calibrate your competencies against industry requirements.

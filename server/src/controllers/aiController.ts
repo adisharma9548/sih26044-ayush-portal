@@ -33,7 +33,8 @@ export const getSpecializations = async (req: AuthRequest, res: Response) => {
 export const getDiagnosticQuestions = async (req: AuthRequest, res: Response) => {
   try {
     const degree = (req.query.degree as string) || req.user?.degree || '';
-    const specialization =
+    const department = (req.query.department as string) || req.user?.department || '';
+    let specialization =
       (req.query.specialization as string) ||
       (req.query.domain as string) ||
       req.user?.specialization ||
@@ -41,9 +42,15 @@ export const getDiagnosticQuestions = async (req: AuthRequest, res: Response) =>
       '';
     const targetDomain = (req.query.targetDomain as string) || req.user?.targetDomain || '';
 
+    // If specialization is generic or empty, resolve to department or degree
+    if (!specialization || specialization.toLowerCase() === 'general') {
+      specialization = department || degree || 'Core Discipline';
+    }
+
     // If user is authenticated and provided fields, persist them
     if (req.user && (degree || specialization || targetDomain)) {
       if (degree) req.user.degree = degree;
+      if (department) req.user.department = department;
       if (specialization) {
         req.user.specialization = specialization;
         req.user.currentDomain = specialization;
@@ -52,11 +59,12 @@ export const getDiagnosticQuestions = async (req: AuthRequest, res: Response) =>
       await req.user.save();
     }
 
-    const questions = await generateDiagnosticQuestions(degree, specialization, targetDomain, specialization);
+    const questions = await generateDiagnosticQuestions(degree, specialization, targetDomain, specialization, department);
 
     res.json({
       data: {
         degree,
+        department,
         specialization,
         domain: specialization,
         targetDomain,
@@ -149,8 +157,31 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
         userId: req.user._id,
         degree: targetDegree,
       });
+    } else {
+      const userDegree = (targetDegree || req.user.degree || '').trim().toLowerCase();
+      const profileDegree = (profile.degree || '').trim().toLowerCase();
+      if (userDegree && profileDegree && userDegree !== profileDegree) {
+        if (!profile.historicalContexts) profile.historicalContexts = [];
+        if (profile.skills && profile.skills.length > 0) {
+          profile.historicalContexts.push({
+            contextHash: profile.academicContextHash || '',
+            version: profile.academicContextVersion || 1,
+            degree: profile.degree || '',
+            department: profile.academicContext?.department || '',
+            specialization: profile.academicContext?.specialization || '',
+            institution: profile.academicContext?.institution || '',
+            archivedAt: new Date(),
+            skills: profile.skills,
+            overallScore: profile.overallScore || 0,
+            gapAnalysis: profile.gapAnalysis || [],
+          });
+        }
+        profile.skills = [];
+        profile.gapAnalysis = [];
+      }
     }
 
+    profile.degree = targetDegree || req.user.degree || '';
     profile.status = 'current';
     profile.academicContextHash = req.user.academicContextHash || '';
     profile.academicContextVersion = req.user.academicContextVersion || 1;

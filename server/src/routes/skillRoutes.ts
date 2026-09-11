@@ -6,12 +6,12 @@ import {
   getPortfolioData,
   addPortfolioProject,
 } from '../controllers/skillController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
 
 router.get('/profile', authenticate, getProfile);
-router.get('/assessment/questions', getQuestions);
+router.get('/assessment/questions', optionalAuthenticate, getQuestions);
 router.post('/assessment/submit', authenticate, submitAssessment);
 router.get('/portfolio', authenticate, getPortfolioData);
 router.post('/portfolio/projects', authenticate, addPortfolioProject);

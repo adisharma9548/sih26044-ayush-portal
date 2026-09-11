@@ -137,6 +137,7 @@ export const ProfileSettingsPage: React.FC = () => {
       await api.auth.changePassword({
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
+        userId: user?.id,
       });
       setSuccessMsg('Security credentials updated successfully in database.');
       setFormData({ ...formData, currentPassword: '', newPassword: '', confirmPassword: '' });

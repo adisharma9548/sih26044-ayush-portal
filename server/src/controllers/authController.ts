@@ -477,7 +477,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
     const cleanEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
     if (user) {
-      await sendOtpEmail(cleanEmail, 'PASSWORD_RESET');
+      try {
+        await sendOtpEmail(cleanEmail, 'PASSWORD_RESET');
+      } catch (emailErr: any) {
+        console.warn('[forgotPassword] Non-fatal email delivery warning:', emailErr?.message || emailErr);
+      }
     }
 
     // Always return generic success message to prevent user enumeration (OWASP A07:2025)
