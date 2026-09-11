@@ -140,6 +140,7 @@ export const AiOnboardingModal: React.FC<Props> = ({
     requestFullscreen,
     recordViolation,
     clearActiveWarning,
+    resetProctoring,
   } = useExamProctoring({
     active: phase === 'test' && isOpen,
     maxStrikes: 3,
@@ -198,12 +199,14 @@ export const AiOnboardingModal: React.FC<Props> = ({
       setEvaluation(null);
       setStudyTimeline(null);
       setError(null);
+      resetProctoring();
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, resetProctoring]);
 
   const handleStartTest = async () => {
     setLoading(true);
     setError(null);
+    resetProctoring();
     try {
       if (user?.id) {
         api.users.updateProfile(user.id, { degree: selectedDegree, currentDomain, targetDomain }).catch(() => {});

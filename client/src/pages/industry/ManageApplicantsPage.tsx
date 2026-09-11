@@ -269,6 +269,7 @@ export const ManageApplicantsPage: React.FC = () => {
                   <option value="in_review">Under Review</option>
                   <option value="shortlisted">Shortlisted</option>
                   <option value="interview_scheduled">Interview Scheduled</option>
+                  <option value="interview_completed">Interview Completed</option>
                   <option value="offered">Offer Extended</option>
                   <option value="rejected">Rejected</option>
                 </>
@@ -340,6 +341,7 @@ export const ManageApplicantsPage: React.FC = () => {
                           <option value="in_review">Under Review</option>
                           <option value="shortlisted">Shortlisted</option>
                           <option value="interview_scheduled">Interview Scheduled</option>
+                          <option value="interview_completed">Interview Completed</option>
                           <option value="offered">Offer Extended</option>
                           <option value="rejected">Rejected</option>
                         </select>
@@ -522,6 +524,13 @@ export const ManageApplicantsPage: React.FC = () => {
                   className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100"
                 >
                   Schedule Interview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(selectedApp.id, 'interview_completed')}
+                  className="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 font-bold hover:bg-teal-100"
+                >
+                  Mark Interview Completed
                 </button>
                 {selectedApp.status === 'interview_scheduled' && (
                   <Link

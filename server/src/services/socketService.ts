@@ -2,10 +2,15 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
 
+import { EndedRoom } from '../models/EndedRoom';
 import { getJwtSecret } from '../middleware/auth';
 
 let io: SocketIOServer | null = null;
 const userSocketMap = new Map<string, string[]>(); // userId -> socketId[]
+
+const roomWhiteboardMap = new Map<string, any[]>();
+const roomNotesMap = new Map<string, string>();
+const endedRoomsSet = new Set<string>();
 
 export const initSocketIO = (httpServer: HTTPServer) => {
   const defaultOrigins = [
@@ -32,12 +37,21 @@ export const initSocketIO = (httpServer: HTTPServer) => {
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
         const normalizedOrigin = origin.replace(/\/+$/, '');
+        const isProd = process.env.NODE_ENV === 'production';
+
+        const isOfficialVercelDeployment =
+          normalizedOrigin === 'https://sih26044-ayush-portal.vercel.app' ||
+          /^https:\/\/sih26044-ayush-portal(-[a-zA-Z0-9_-]+)?\.vercel\.app$/.test(normalizedOrigin);
+
+        const isOfficialRailwayDeployment =
+          normalizedOrigin === 'https://sih26044-ayush-portal-production.up.railway.app' ||
+          /^https:\/\/sih26044-ayush-portal(-[a-zA-Z0-9_-]+)?\.up\.railway\.app$/.test(normalizedOrigin);
+
         if (
           allowedOrigins.includes(normalizedOrigin) ||
-          allowedOrigins.includes('*') ||
-          process.env.NODE_ENV !== 'production' ||
-          normalizedOrigin.endsWith('.vercel.app') ||
-          normalizedOrigin.endsWith('.up.railway.app')
+          isOfficialVercelDeployment ||
+          isOfficialRailwayDeployment ||
+          !isProd
         ) {
           callback(null, true);
         } else {
@@ -49,10 +63,23 @@ export const initSocketIO = (httpServer: HTTPServer) => {
     },
   });
 
+  EndedRoom.find({})
+    .select('roomId')
+    .lean()
+    .then((rooms) => {
+      rooms.forEach((r: any) => endedRoomsSet.add(r.roomId));
+      console.log(`[Socket.IO] Pre-loaded ${endedRoomsSet.size} concluded rooms into termination registry`);
+    })
+    .catch((err) => console.error('[Socket.IO] Failed to pre-load concluded rooms:', err));
+
   io.use((socket: Socket, next) => {
-    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+    const token =
+      socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.split(' ')[1] ||
+      (typeof socket.handshake.query?.token === 'string' ? socket.handshake.query.token : undefined);
+
     if (!token) {
-      return next(); // Allow anonymous connection or skip strict handshake for MVP
+      return next(); // Allow development or public demo access, authenticated sockets will have user context
     }
 
     try {
@@ -76,7 +103,32 @@ export const initSocketIO = (httpServer: HTTPServer) => {
     }
 
     // WebRTC Signaling Channels for in-app peer-to-peer video calls (Unlimited duration)
-    socket.on('webrtc:join-room', ({ roomId, user }: { roomId: string; user?: any }) => {
+    socket.on('webrtc:join-room', async ({ roomId, user }: { roomId: string; user?: any }) => {
+      if (!roomId) return;
+
+      // Prevent anyone from joining a concluded meeting
+      if (endedRoomsSet.has(roomId)) {
+        socket.emit('webrtc:room-error', {
+          code: 'MEETING_ENDED',
+          message: 'This meeting session has ended and is no longer accessible. New participants cannot join.',
+        });
+        return;
+      }
+
+      try {
+        const isEnded = await EndedRoom.findOne({ roomId });
+        if (isEnded) {
+          endedRoomsSet.add(roomId);
+          socket.emit('webrtc:room-error', {
+            code: 'MEETING_ENDED',
+            message: 'This meeting session has ended and is no longer accessible. New participants cannot join.',
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('[Socket] Error checking ended room status:', err);
+      }
+
       const roomKey = `meeting:${roomId}`;
       socket.join(roomKey);
 
@@ -94,6 +146,15 @@ export const initSocketIO = (httpServer: HTTPServer) => {
         peerId: socket.id,
         participantCount,
       });
+
+      // Send existing whiteboard stroke history & notes to newly joined peer
+      const existingStrokes = roomWhiteboardMap.get(roomId) || [];
+      socket.emit('webrtc:whiteboard-init', { strokes: existingStrokes });
+
+      const existingNotes = roomNotesMap.get(roomId) || '';
+      if (existingNotes) {
+        socket.emit('webrtc:notes-init', { notes: existingNotes });
+      }
     });
 
     socket.on('webrtc:offer', ({ roomId, sdp, targetId }: { roomId: string; sdp: any; targetId?: string }) => {
@@ -129,14 +190,32 @@ export const initSocketIO = (httpServer: HTTPServer) => {
       });
     });
 
-    // In-call collaborative whiteboard sync
+    // In-call collaborative whiteboard sync with stroke history caching
     socket.on('webrtc:whiteboard-draw', ({ roomId, drawData, sender }: { roomId: string; drawData: any; sender: string }) => {
-      socket.to(`meeting:${roomId}`).emit('webrtc:whiteboard-draw', { drawData, sender });
+      if (roomId && drawData) {
+        if (drawData.isClear) {
+          roomWhiteboardMap.set(roomId, []);
+        } else {
+          const existing = roomWhiteboardMap.get(roomId) || [];
+          existing.push(drawData);
+          if (existing.length > 2000) existing.shift();
+          roomWhiteboardMap.set(roomId, existing);
+        }
+        socket.to(`meeting:${roomId}`).emit('webrtc:whiteboard-draw', { drawData, sender });
+      }
     });
 
-    // In-call shared technical notes / live code sync
+    // In-call shared technical notes / live code sync with caching
     socket.on('webrtc:notes-update', ({ roomId, notes, sender }: { roomId: string; notes: string; sender: string }) => {
-      socket.to(`meeting:${roomId}`).emit('webrtc:notes-update', { notes, sender });
+      if (roomId) {
+        roomNotesMap.set(roomId, notes || '');
+        socket.to(`meeting:${roomId}`).emit('webrtc:notes-update', { notes, sender });
+      }
+    });
+
+    // Explicit end meeting event broadcasted to all participants in room
+    socket.on('webrtc:end-meeting', ({ roomId, endedBy }: { roomId: string; endedBy?: string }) => {
+      markRoomEnded(roomId, endedBy);
     });
 
     socket.on('webrtc:leave-room', ({ roomId }: { roomId: string }) => {
@@ -167,6 +246,18 @@ export const initSocketIO = (httpServer: HTTPServer) => {
 
   console.log('[Socket.IO] Real-time event broker initialized');
   return io;
+};
+
+export const markRoomEnded = (roomId: string, endedBy?: string) => {
+  if (!roomId) return;
+  endedRoomsSet.add(roomId);
+  const roomKey = `meeting:${roomId}`;
+  if (io) {
+    io.to(roomKey).emit('webrtc:meeting-ended', { roomId, endedBy });
+    roomWhiteboardMap.delete(roomId);
+    roomNotesMap.delete(roomId);
+    io.in(roomKey).socketsLeave(roomKey);
+  }
 };
 
 export const emitToUser = (userId: string, event: string, payload: any) => {

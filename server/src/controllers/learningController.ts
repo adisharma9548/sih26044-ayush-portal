@@ -24,7 +24,13 @@ export const getAllLearningPrograms = async (_req: Request, res: Response) => {
 export const enrollLearningProgram = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const authUser = (req as any).user;
     const { userId } = req.body;
+    const effectiveUserId = authUser ? authUser._id.toString() : userId;
+
+    if (!effectiveUserId) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required to enroll' } });
+    }
 
     if (!mongoose.isValidObjectId(id)) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Program not found' } });
@@ -38,17 +44,15 @@ export const enrollLearningProgram = async (req: Request, res: Response) => {
     program.enrolledCount += 1;
     await program.save();
 
-    if (userId) {
-      const notif = new Notification({
-        userId,
-        title: 'Enrolled in Learning Module',
-        message: `You successfully enrolled in "${program.title}". Course syllabus is now available.`,
-        type: 'system',
-        link: '/student/learning',
-      });
-      await notif.save();
-      emitToUser(userId, 'notification:new', notif);
-    }
+    const notif = new Notification({
+      userId: effectiveUserId,
+      title: 'Enrolled in Learning Module',
+      message: `You successfully enrolled in "${program.title}". Course syllabus is now available.`,
+      type: 'system',
+      link: '/student/learning',
+    });
+    await notif.save();
+    emitToUser(effectiveUserId, 'notification:new', notif);
 
     res.json({
       data: {
@@ -63,11 +67,14 @@ export const enrollLearningProgram = async (req: Request, res: Response) => {
 
 export const createLearningProgram = async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
     const payload = req.body;
     const newProg = new LearningProgram({
       ...payload,
       rating: 5.0,
       enrolledCount: 0,
+      postedBy: user?._id || undefined,
+      provider: payload.provider || user?.institution || user?.name || 'Accredited Partner',
     });
     await newProg.save();
     res.status(201).json({ data: newProg });
@@ -411,8 +418,9 @@ export const getCourseWorkspace = async (req: Request, res: Response) => {
 export const updateCourseProgress = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { lessonId, completed, submittedCode, totalLessons = 5 } = req.body;
-    const userId = (req as any).user?._id?.toString() || req.body.userId;
+    const { lessonId, completed, submittedCode } = req.body;
+    const user = (req as any).user;
+    const userId = user?._id?.toString();
 
     if (!userId) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
@@ -449,7 +457,16 @@ export const updateCourseProgress = async (req: Request, res: Response) => {
       progress.codeSubmissions.set(lessonId, submittedCode);
     }
 
-    const pct = Math.min(100, Math.round((progress.completedLessons.length / Math.max(1, totalLessons)) * 100));
+    // OWASP A08 & API3: Compute progress against server curriculum rather than trusting client-provided totalLessons
+    let canonicalTotalLessons = 5;
+    if (mongoose.isValidObjectId(id)) {
+      const progDoc = await LearningProgram.findById(id).lean();
+      if (progDoc && (progDoc as any).curriculum && Array.isArray((progDoc as any).curriculum)) {
+        canonicalTotalLessons = Math.max(1, (progDoc as any).curriculum.length);
+      }
+    }
+
+    const pct = Math.min(100, Math.round((progress.completedLessons.length / Math.max(1, canonicalTotalLessons)) * 100));
     progress.overallProgressPercent = pct;
 
     let newlyCompleted = false;
@@ -591,12 +608,28 @@ export const getManagedLearningPrograms = async (req: Request, res: Response) =>
 export const getProgramEnrollees = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
 
     if (!id || !mongoose.isValidObjectId(id)) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Invalid program ID' } });
     }
 
     const program = await LearningProgram.findById(id).lean();
+    if (!program) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Program not found' } });
+    }
+
+    // OWASP A01 / API1: Non-admin users can only view enrollees for programs managed by their organization
+    const isOwner = (program as any).postedBy?.toString() === user._id.toString() ||
+      ((program as any).provider && (program as any).provider.toLowerCase().trim() === (user.institution || user.name || '').toLowerCase().trim());
+    const isAdmin = user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied. You can only inspect enrollees for your own organization.' } });
+    }
 
     const progresses = await CourseProgress.find({
       $or: [
@@ -642,6 +675,10 @@ export const getProgramEnrollees = async (req: Request, res: Response) => {
 export const deleteLearningProgram = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
 
     if (!mongoose.isValidObjectId(id)) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Program not found' } });
@@ -650,6 +687,15 @@ export const deleteLearningProgram = async (req: Request, res: Response) => {
     const program = await LearningProgram.findById(id);
     if (!program) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Program not found' } });
+    }
+
+    // OWASP A01 / API1: Non-admin users can only archive their own organization's programs
+    const isOwner = (program as any).postedBy?.toString() === user._id.toString() ||
+      ((program as any).provider && (program as any).provider.toLowerCase().trim() === (user.institution || user.name || '').toLowerCase().trim());
+    const isAdmin = user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Unauthorized. You can only archive programs managed by your organization.' } });
     }
 
     // Soft-delete / Archive from public listings

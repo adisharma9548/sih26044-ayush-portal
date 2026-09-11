@@ -98,6 +98,14 @@ export const useExamProctoring = ({
     setActiveWarning(null);
   }, []);
 
+  const resetProctoring = useCallback(() => {
+    setStrikes(0);
+    setViolationsLog([]);
+    setActiveWarning(null);
+    strikesRef.current = 0;
+    violationsRef.current = [];
+  }, []);
+
   // Listeners for Tab Switches, Window Focus, Fullscreen, Keystrokes, and Clipboard
   useEffect(() => {
     if (!active) return;
@@ -194,5 +202,6 @@ export const useExamProctoring = ({
     requestFullscreen,
     recordViolation,
     clearActiveWarning,
+    resetProctoring,
   };
 };

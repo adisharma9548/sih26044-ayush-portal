@@ -102,7 +102,14 @@ export const reviewProposal = async (req: Request, res: Response) => {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'MoU Proposal not found' } });
     }
 
+    // OWASP API5:2023 - Broken Function Level Authorization (BFLA) check
+    // Only verified institutional faculty/representatives or platform administrators can review MoUs
+    if (user.role === 'student' || user.role === 'jobseeker') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Students and job seekers are not authorized to review or approve bilateral MoUs.' } });
+    }
+
     const isTargetInstMatch = Boolean(
+      (user.role === 'academician' || user.role === 'industry') &&
       user.institution &&
       proposal.targetOrganization &&
       proposal.targetOrganization.toLowerCase().includes(user.institution.toLowerCase())

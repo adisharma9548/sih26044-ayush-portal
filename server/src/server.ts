@@ -156,12 +156,27 @@ const authLimiter = rateLimit({
   },
 });
 
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: {
+    error: {
+      code: 'AI_RATE_LIMIT_EXCEEDED',
+      message: 'Too many AI generation requests. Please wait a few moments before trying again.',
+    },
+  },
+});
+
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/signup', authLimiter);
 app.use('/api/auth/forgot-password', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 app.use('/api/auth/send-otp', authLimiter);
 app.use('/api/auth/send-registration-otp', authLimiter);
+app.use('/api/ai', aiLimiter);
 app.use('/api', globalLimiter);
 
 app.use(morgan(isProd ? 'combined' : 'dev'));

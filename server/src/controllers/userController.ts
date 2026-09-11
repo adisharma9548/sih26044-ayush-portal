@@ -21,11 +21,38 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You are not authorized to modify another user\'s profile' } });
     }
 
-    // Prevent privilege escalation and credential tampering through profile update
-    delete updates.role;
-    delete updates.password;
-    delete updates.isEmailVerified;
-    delete updates._id;
+    // OWASP API3:2023 - Strict Whitelist for Profile Updates (Prevent Mass Assignment / BOPLA)
+    const allowedFields = [
+      'name',
+      'phone',
+      'bio',
+      'location',
+      'profilePicture',
+      'department',
+      'designation',
+      'skills',
+      'ayushDomain',
+      'institution',
+      'industry',
+      'degree',
+      'academicField',
+      'specialization',
+      'graduationYear',
+      'facultyId',
+      'currentDomain',
+      'targetDomain',
+    ];
+
+    if (isAdmin) {
+      allowedFields.push('verified');
+    }
+
+    const sanitizedUpdates: Record<string, any> = {};
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        sanitizedUpdates[field] = updates[field];
+      }
+    }
 
     let user = req.user;
     if (isAdmin && userId && mongoose.isValidObjectId(userId)) {
@@ -36,7 +63,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       user = found;
     }
 
-    Object.assign(user, updates);
+    Object.assign(user, sanitizedUpdates);
     await user.save();
 
     res.json({ data: user.toSafeObject() });

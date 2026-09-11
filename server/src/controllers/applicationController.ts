@@ -5,7 +5,8 @@ import { Opportunity } from '../models/Opportunity';
 import { Notification } from '../models/Notification';
 import { User } from '../models/User';
 import { Meeting } from '../models/Meeting';
-import { emitToUser } from '../services/socketService';
+import { EndedRoom } from '../models/EndedRoom';
+import { emitToUser, markRoomEnded } from '../services/socketService';
 import { AuthRequest } from '../middleware/auth';
 
 export const getMyApplications = async (req: AuthRequest, res: Response) => {
@@ -36,10 +37,23 @@ const escapeRegex = (str: string): string => {
 
 export const getCompanyApplicants = async (req: Request, res: Response) => {
   try {
-    const { companyName, employerId } = req.query;
     const user = (req as any).user;
-    const currentUserId = employerId || user?._id?.toString();
-    const currentCompany = companyName || user?.institution || user?.name;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    const { companyName, employerId } = req.query;
+    const isAdmin = user.role === 'admin';
+
+    // OWASP A01 / API1: BOLA check - non-admin industry recruiters cannot query another employer's applicants
+    if (!isAdmin && employerId && employerId.toString() !== user._id.toString()) {
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: 'Unauthorized. You cannot access applicant records for another organization.' }
+      });
+    }
+
+    const currentUserId = (!isAdmin || !employerId) ? user._id.toString() : employerId.toString();
+    const currentCompany = (!isAdmin || !companyName) ? (user.institution || user.name) : companyName.toString();
 
     const queryConditions: any[] = [];
 
@@ -52,8 +66,8 @@ export const getCompanyApplicants = async (req: Request, res: Response) => {
       }
     }
 
-    if (currentCompany && currentCompany !== 'undefined') {
-      const safeCompanyPattern = escapeRegex(currentCompany.toString().trim());
+    if (currentCompany && currentCompany !== 'undefined' && currentCompany.trim().length > 0) {
+      const safeCompanyPattern = escapeRegex(currentCompany.trim());
       queryConditions.push({ companyName: { $regex: safeCompanyPattern, $options: 'i' } });
       const compOpportunities = await Opportunity.find({
         company: { $regex: safeCompanyPattern, $options: 'i' }
@@ -64,10 +78,12 @@ export const getCompanyApplicants = async (req: Request, res: Response) => {
       }
     }
 
-    let query: any = {};
-    if (queryConditions.length > 0) {
-      query = { $or: queryConditions };
+    // Safety guard: If no conditions matched, non-admins must receive empty array (never {} all-docs dump)
+    if (queryConditions.length === 0 && !isAdmin) {
+      return res.json({ data: [] });
     }
+
+    const query = queryConditions.length > 0 ? { $or: queryConditions } : (isAdmin ? {} : { _id: null });
 
     const applications = await Application.find(query).sort({ createdAt: -1 }).lean();
     const formatted = applications.map((item: any) => ({
@@ -158,6 +174,20 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
           { upsert: true, new: true }
         );
       }
+    } else if (['interview_completed', 'offered', 'rejected', 'withdrawn'].includes(status)) {
+      await Meeting.deleteMany({ roomId });
+      await EndedRoom.findOneAndUpdate(
+        { roomId },
+        {
+          roomId,
+          title: `Technical Interview: ${application.opportunityTitle}`,
+          endedBy: user._id.toString(),
+          endedAt: new Date(),
+          appId: application._id.toString(),
+        },
+        { upsert: true, new: true }
+      );
+      markRoomEnded(roomId, user.name);
     }
 
     await application.save();

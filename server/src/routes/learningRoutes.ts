@@ -10,18 +10,18 @@ import {
   getProgramEnrollees,
   deleteLearningProgram,
 } from '../controllers/learningController';
-import { authenticate } from '../middleware/auth';
+import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
 
 router.get('/programs', getAllLearningPrograms);
-router.post('/programs', authenticate, createLearningProgram);
-router.post('/programs/:id/enroll', enrollLearningProgram);
+router.post('/programs', authenticate, authorize('industry', 'academician', 'admin'), createLearningProgram);
+router.post('/programs/:id/enroll', authenticate, enrollLearningProgram);
 
 // Industry & Academic Management & Analytics
-router.get('/manage', authenticate, getManagedLearningPrograms);
-router.get('/programs/:id/enrollees', authenticate, getProgramEnrollees);
-router.delete('/programs/:id', authenticate, deleteLearningProgram);
+router.get('/manage', authenticate, authorize('industry', 'academician', 'admin'), getManagedLearningPrograms);
+router.get('/programs/:id/enrollees', authenticate, authorize('industry', 'academician', 'admin'), getProgramEnrollees);
+router.delete('/programs/:id', authenticate, authorize('industry', 'academician', 'admin'), deleteLearningProgram);
 
 // Personalized Learning Workspace & Progress (Anti-cheat & private module track)
 router.get('/course/:id/workspace', authenticate, getCourseWorkspace);

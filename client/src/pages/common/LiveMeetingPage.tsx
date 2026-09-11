@@ -14,7 +14,9 @@ import {
   CheckCircle2,
   X,
   Loader2,
-  Users
+  Users,
+  AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { WebRtcVideoRoom } from '../../components/meeting/WebRtcVideoRoom';
@@ -45,37 +47,68 @@ export const LiveMeetingPage: React.FC = () => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [activeCallRoom, setActiveCallRoom] = useState<MeetingItem | null>(null);
   const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [checkingRoom, setCheckingRoom] = useState(false);
+  const [roomError, setRoomError] = useState<string | null>(null);
 
-  // Auto-launch room if ?room= parameter is provided in the URL
+  // Auto-launch room if ?room= parameter is provided in the URL, after verifying room is active
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const roomParam = params.get('room');
     const titleParam = params.get('title');
 
     if (roomParam) {
-      setActiveCallRoom({
-        id: roomParam,
-        roomId: roomParam,
-        title: titleParam || 'Technical Interview Session',
-        type: 'interview',
-        organizerName: 'Interview Board',
-        organizerRole: 'industry',
-        participantName: user?.name || 'Participant',
-        participantEmail: user?.email || '',
-        scheduledAt: new Date().toISOString(),
-        durationMinutes: 45,
-        meetingUrl: `/meetings?room=${roomParam}`,
-        status: 'in_progress',
-      });
+      setCheckingRoom(true);
+      setRoomError(null);
+
+      api.meetings.getById(roomParam)
+        .then((res) => {
+          const meetingData = res.data;
+          setActiveCallRoom({
+            id: roomParam,
+            roomId: roomParam,
+            title: meetingData?.title || titleParam || 'Technical Interview Session',
+            type: meetingData?.type || 'interview',
+            organizerName: meetingData?.organizerName || 'Interview Board',
+            organizerRole: meetingData?.organizerRole || 'industry',
+            participantName: meetingData?.participantName || user?.name || 'Participant',
+            participantEmail: meetingData?.participantEmail || user?.email || '',
+            scheduledAt: meetingData?.scheduledAt || new Date().toISOString(),
+            durationMinutes: meetingData?.durationMinutes || 45,
+            meetingUrl: `/meetings?room=${roomParam}`,
+            status: 'in_progress',
+          });
+        })
+        .catch((err: any) => {
+          console.warn('[LiveMeetingPage] Pre-join room verification failed:', err);
+          const message =
+            err.message ||
+            'This meeting session has ended and is no longer accessible. New participants cannot join.';
+          setRoomError(message);
+          setActiveCallRoom(null);
+          // Remove ?room= parameter from URL to prevent invalid join attempts
+          navigate('/meetings', { replace: true });
+        })
+        .finally(() => {
+          setCheckingRoom(false);
+        });
     }
   }, [location.search, user]);
 
   const handleCloseRoom = () => {
     setActiveCallRoom(null);
-    navigate('/meetings', { replace: true });
+    fetchMeetings();
+    if (role === 'industry' || user?.role === 'industry' || role === 'admin') {
+      navigate('/industry/manage-applicants', { replace: true });
+    } else if (role === 'student' || user?.role === 'student') {
+      navigate('/student/applications', { replace: true });
+    } else if (role === 'academician' || user?.role === 'academician') {
+      navigate('/academician/opportunities', { replace: true });
+    } else {
+      navigate('/meetings', { replace: true });
+    }
   };
 
-  const handleDirectJoin = (e: React.FormEvent) => {
+  const handleDirectJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!roomCodeInput.trim()) return;
 
@@ -87,7 +120,23 @@ export const LiveMeetingPage: React.FC = () => {
     }
 
     setRoomCodeInput('');
-    navigate(`/meetings?room=${encodeURIComponent(targetRoom)}&title=Direct%20Video%20Session`, { replace: true });
+    setRoomError(null);
+    setCheckingRoom(true);
+
+    try {
+      const res = await api.meetings.getById(targetRoom);
+      const meetingData = res.data;
+      navigate(
+        `/meetings?room=${encodeURIComponent(targetRoom)}&title=${encodeURIComponent(meetingData?.title || 'Direct Video Session')}`,
+        { replace: true }
+      );
+    } catch (err: any) {
+      setRoomError(
+        err.message || 'This meeting session has ended or is no longer accessible. New participants cannot join.'
+      );
+    } finally {
+      setCheckingRoom(false);
+    }
   };
 
   // Scheduling form state
@@ -111,11 +160,27 @@ export const LiveMeetingPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await api.meetings.getMyMeetings();
-      setMeetings(res.data || []);
+      // Ensure only active scheduled/in-progress meetings are displayed
+      const activeList = (res.data || []).filter(
+        (m: MeetingItem) => m.status !== 'completed' && m.status !== 'cancelled'
+      );
+      setMeetings(activeList);
     } catch {
       setMeetings([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteMeeting = async (meetingId: string) => {
+    if (!window.confirm('Are you sure you want to cancel and delete this meeting session? It will be removed from all participants.')) {
+      return;
+    }
+    try {
+      await api.meetings.deleteMeeting(meetingId);
+      fetchMeetings();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete meeting');
     }
   };
 
@@ -191,6 +256,25 @@ export const LiveMeetingPage: React.FC = () => {
           }}
           onClose={handleCloseRoom}
         />
+      )}
+
+      {/* Room Inaccessible / Concluded Alert Banner */}
+      {roomError && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-3 shadow-xs animate-in fade-in duration-150">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-bold text-sm text-rose-900">Meeting Session Inaccessible</p>
+            <p className="mt-0.5 text-rose-700 leading-relaxed">{roomError}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRoomError(null)}
+            className="text-rose-400 hover:text-rose-600 cursor-pointer p-1"
+            title="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
 
       {/* Direct Room Code / Link Entry Bar */}
@@ -286,6 +370,16 @@ export const LiveMeetingPage: React.FC = () => {
                     <Video className="w-3.5 h-3.5" />
                     <span>Join Room</span>
                   </button>
+
+                  {(role === 'industry' || role === 'admin' || role === m.organizerRole) && (
+                    <button
+                      onClick={() => handleDeleteMeeting(m.id)}
+                      className="p-2 rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer"
+                      title="Cancel and remove meeting"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

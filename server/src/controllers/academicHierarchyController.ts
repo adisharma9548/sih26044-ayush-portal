@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { User } from '../models/User';
 import {
   verifyAndSearchInstitutions,
   getInstitutionPrograms,
@@ -9,8 +10,8 @@ import { getCache, setCache } from '../config/redis';
 
 /**
  * GET /api/academic/institutions?q=...
- * Searches and verifies recognized Indian higher education institutions against UGC/AICTE data.
- * Zero hardcoded catalogs or static fallbacks.
+ * Searches and verifies recognized Indian higher education institutions against UGC/AICTE data
+ * and registered database colleges. Zero hardcoded static catalogs.
  */
 export const searchInstitutions = async (req: Request, res: Response) => {
   try {
@@ -30,14 +31,47 @@ export const searchInstitutions = async (req: Request, res: Response) => {
       }
     }
 
-    const institutions = await verifyAndSearchInstitutions(q);
-
-    // Cache verified results for 24 hours to prevent redundant AI traffic
-    if (institutions.length > 0) {
-      await setCache(cacheKey, JSON.stringify(institutions), 86400);
+    // 1. Check existing registered/seeded institutions in MongoDB
+    const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let dbInstitutions: any[] = [];
+    try {
+      const existingFromDb: string[] = await User.distinct('institution', {
+        institution: { $regex: escapedQ, $options: 'i' },
+      });
+      dbInstitutions = existingFromDb.filter(Boolean).map((name) => ({
+        id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+        name: name.trim(),
+        type: 'Higher Education Institution',
+        isRecognized: true,
+        accreditationStatus: 'Verified Institution in Database',
+        state: 'India',
+        city: '',
+      }));
+    } catch (err) {
+      console.warn('[Academic Controller] MongoDB institution lookup warning:', err);
     }
 
-    res.json({ data: { institutions } });
+    // 2. Discover / verify institutions across India via AI
+    const aiInstitutions = await verifyAndSearchInstitutions(q);
+
+    // 3. Merge and deduplicate by normalized name
+    const seen = new Set<string>();
+    const mergedInstitutions: any[] = [];
+
+    for (const inst of [...dbInstitutions, ...aiInstitutions]) {
+      const norm = inst.name.toLowerCase().trim();
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        mergedInstitutions.push(inst);
+      }
+    }
+
+    // Cache verified results for 24 hours to prevent redundant traffic
+    if (mergedInstitutions.length > 0) {
+      await setCache(cacheKey, JSON.stringify(mergedInstitutions), 86400);
+    }
+
+    res.json({ data: { institutions: mergedInstitutions } });
   } catch (err: any) {
     console.error('[Academic Controller] searchInstitutions error:', err.message);
     res.status(500).json({

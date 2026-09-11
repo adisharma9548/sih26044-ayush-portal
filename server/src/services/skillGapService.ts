@@ -24,14 +24,20 @@ export const analyzeSkillGaps = async (
 
   requiredSkillNames.forEach((reqName) => {
     const found = studentSkills.find(
-      (s) => s.name.toLowerCase().includes(reqName.toLowerCase()) || reqName.toLowerCase().includes(s.name.toLowerCase())
+      (s) =>
+        s?.name &&
+        (s.name.toLowerCase().includes(reqName.toLowerCase()) || reqName.toLowerCase().includes(s.name.toLowerCase()))
     );
 
     if (!found) {
       missingSkills.push(reqName);
       // Map to bridge program if available
-      const matchedProg = programs.find((p) =>
-        p.skillsCovered.some((sc: string) => sc.toLowerCase().includes(reqName.toLowerCase()))
+      const matchedProg = programs.find(
+        (p) =>
+          Array.isArray(p?.skillsCovered) &&
+          p.skillsCovered.some(
+            (sc: string) => sc && typeof sc === 'string' && sc.toLowerCase().includes(reqName.toLowerCase())
+          )
       );
 
       gapAnalysisList.push({
@@ -40,7 +46,7 @@ export const analyzeSkillGaps = async (
         requiredLevel: 80,
         gapPercentage: 80,
         priority: 'High',
-        recommendedProgramId: matchedProg ? matchedProg._id.toString() : undefined,
+        recommendedProgramId: matchedProg ? (matchedProg._id?.toString() || (matchedProg as any)?.id) : undefined,
       });
     } else if (found.level >= found.industryBenchmark) {
       matchingSkills.push({
@@ -49,7 +55,7 @@ export const analyzeSkillGaps = async (
         requiredBenchmark: found.industryBenchmark,
       });
     } else {
-      const gap = found.industryBenchmark - found.level;
+      const gap = Math.max(0, found.industryBenchmark - found.level);
       partialSkills.push({
         name: found.name,
         studentLevel: found.level,
@@ -57,8 +63,12 @@ export const analyzeSkillGaps = async (
         gap,
       });
 
-      const matchedProg = programs.find((p) =>
-        p.skillsCovered.some((sc: string) => sc.toLowerCase().includes(found.name.toLowerCase()))
+      const matchedProg = programs.find(
+        (p) =>
+          Array.isArray(p?.skillsCovered) &&
+          p.skillsCovered.some(
+            (sc: string) => sc && typeof sc === 'string' && sc.toLowerCase().includes(found.name.toLowerCase())
+          )
       );
 
       gapAnalysisList.push({
@@ -67,7 +77,7 @@ export const analyzeSkillGaps = async (
         requiredLevel: found.industryBenchmark,
         gapPercentage: gap,
         priority: gap > 15 ? 'High' : 'Medium',
-        recommendedProgramId: matchedProg ? matchedProg._id.toString() : undefined,
+        recommendedProgramId: matchedProg ? (matchedProg._id?.toString() || (matchedProg as any)?.id) : undefined,
       });
     }
   });

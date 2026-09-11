@@ -13,7 +13,7 @@ export interface IQuestion extends Document {
 
 const QuestionSchema: Schema = new Schema(
   {
-    numericId: { type: Number, required: true, unique: true },
+    numericId: { type: Number, required: true, index: true },
     category: { type: String, required: true },
     question: { type: String, required: true },
     options: [{ type: String, required: true }],

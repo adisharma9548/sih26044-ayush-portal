@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Download,
   AlertCircle,
-  Video
+  Video,
+  CheckCircle2
 } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 import { AiMatchMatrix } from '../../components/common/AiMatchMatrix';
@@ -41,6 +42,7 @@ export const MyApplicationsPage: React.FC = () => {
     { key: 'in_review', label: 'Under Review' },
     { key: 'shortlisted', label: 'Shortlisted' },
     { key: 'interview_scheduled', label: 'Interview Scheduled' },
+    { key: 'interview_completed', label: 'Interview Completed' },
     { key: 'offered', label: 'Offer Extended' }
   ];
 
@@ -52,7 +54,7 @@ export const MyApplicationsPage: React.FC = () => {
   const filteredApps = applications.filter((app) => {
     if (statusFilter === 'all') return true;
     if (statusFilter === 'active') return app.status !== 'rejected';
-    if (statusFilter === 'interview') return app.status === 'interview_scheduled' || app.status === 'shortlisted';
+    if (statusFilter === 'interview') return app.status === 'interview_scheduled' || app.status === 'interview_completed' || app.status === 'shortlisted';
     return app.status === statusFilter;
   });
 
@@ -173,7 +175,16 @@ export const MyApplicationsPage: React.FC = () => {
                 </div>
 
                 {/* Interview / Next Action Banner */}
-                {(app.interviewDate || app.status === 'interview_scheduled') && (
+                {app.status === 'interview_completed' && (
+                  <div className="p-3.5 rounded-2xl bg-teal-50/90 border border-teal-200/90 flex items-center gap-2.5 text-xs text-teal-900">
+                    <CheckCircle2 className="w-4.5 h-4.5 text-teal-600 shrink-0" />
+                    <div>
+                      <strong>Technical Interview Completed:</strong> Your live session has concluded and was successfully recorded. Recruiter evaluation is underway.
+                    </div>
+                  </div>
+                )}
+
+                {app.status === 'interview_scheduled' && (
                   <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2.5 text-indigo-900 font-medium">
                       <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />

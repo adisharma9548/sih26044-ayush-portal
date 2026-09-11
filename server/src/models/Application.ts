@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'offered' | 'rejected';
+export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'interview_completed' | 'offered' | 'rejected';
 
 export interface IApplication extends Document {
   userId: string;
@@ -33,7 +33,7 @@ const ApplicationSchema: Schema = new Schema(
     companyName: { type: String, required: true, index: true },
     status: {
       type: String,
-      enum: ['applied', 'in_review', 'shortlisted', 'interview_scheduled', 'offered', 'rejected'],
+      enum: ['applied', 'in_review', 'shortlisted', 'interview_scheduled', 'interview_completed', 'offered', 'rejected'],
       default: 'applied',
       index: true,
     },

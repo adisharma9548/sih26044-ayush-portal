@@ -176,27 +176,31 @@ export const submitDiagnosticAnswers = async (req: AuthRequest, res: Response) =
 
     await profile.save();
 
-    // Persist assessment attempt with proctoring audit trail
-    const attempt = new AssessmentAttempt({
-      userId: req.user._id.toString(),
-      score: evaluation.overallScore,
-      answers: answers.reduce((acc: any, curr: any) => {
-        if (curr.questionId !== undefined) {
-          acc[curr.questionId.toString()] = curr.selectedIndex;
-        }
-        return acc;
-      }, {}),
-      evaluatedAt: new Date(),
-      proctoring: proctoring
-        ? {
-            violationsCount: proctoring.violationsCount || 0,
-            violationsLog: proctoring.violationsLog || [],
-            terminatedEarly: !!proctoring.terminatedEarly,
-            integrityScore: typeof proctoring.integrityScore === 'number' ? proctoring.integrityScore : 100,
+    // Persist assessment attempt with proctoring audit trail (resilient)
+    try {
+      const attempt = new AssessmentAttempt({
+        userId: req.user._id.toString(),
+        score: evaluation.overallScore,
+        answers: answers.reduce((acc: any, curr: any) => {
+          if (curr.questionId !== undefined) {
+            acc[curr.questionId.toString()] = curr.selectedIndex;
           }
-        : undefined,
-    });
-    await attempt.save();
+          return acc;
+        }, {}),
+        evaluatedAt: new Date(),
+        proctoring: proctoring
+          ? {
+              violationsCount: proctoring.violationsCount || 0,
+              violationsLog: Array.isArray(proctoring.violationsLog) ? proctoring.violationsLog : [],
+              terminatedEarly: !!proctoring.terminatedEarly,
+              integrityScore: typeof proctoring.integrityScore === 'number' ? proctoring.integrityScore : 100,
+            }
+          : undefined,
+      });
+      await attempt.save();
+    } catch (attemptErr: any) {
+      console.warn('[submitDiagnosticAnswers] Non-fatal attempt logging warning:', attemptErr.message);
+    }
 
     await recordAuditLog({
       req,

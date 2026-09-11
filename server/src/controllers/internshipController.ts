@@ -72,7 +72,8 @@ export const getInternshipById = async (req: Request, res: Response) => {
 export const createInternship = async (req: Request, res: Response) => {
   try {
     const payload = req.body;
-    const postedBy = (req as any).user?._id || payload.postedBy;
+    const user = (req as any).user;
+    const postedBy = (user?.role === 'admin' && payload.postedBy) ? payload.postedBy : user?._id;
 
     const newInternship = new Opportunity({
       ...payload,
@@ -163,7 +164,7 @@ export const applyInternship = async (req: Request, res: Response) => {
 
     // Create persistent notification for student
     const notif = new Notification({
-      userId,
+      userId: effectiveUserId,
       title: 'Application Submitted',
       message: `Your application for "${opportunity.title}" at ${opportunity.company} was received. Compatibility: ${matchResult.compatibilityScore}%.`,
       type: 'application',
@@ -172,7 +173,7 @@ export const applyInternship = async (req: Request, res: Response) => {
     await notif.save();
 
     // Emit real-time notification to student
-    emitToUser(userId, 'notification:new', notif);
+    emitToUser(effectiveUserId, 'notification:new', notif);
 
     // Notify the employer if postedBy is set
     if (opportunity.postedBy) {

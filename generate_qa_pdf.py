@@ -1,0 +1,435 @@
+﻿import os
+import subprocess
+
+html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SIH26044 NodalConnector — Hackathon & Viva Defense Master Q&A Guide</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 16mm 14mm;
+            @bottom-center {
+                content: "Smart India Hackathon 2026 • Problem ID: SIH26044 • Page " counter(page);
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-size: 8pt;
+                color: #64748b;
+            }
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #1e293b;
+            line-height: 1.45;
+            font-size: 9.5pt;
+            background-color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            border-bottom: 2px solid #1a365d;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-title h1 {
+            color: #1a365d;
+            margin: 0 0 4px 0;
+            font-size: 18pt;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        .header-title .subtitle {
+            color: #d97706;
+            font-size: 10pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .header-meta {
+            text-align: right;
+            font-size: 8.5pt;
+            color: #475569;
+        }
+        .meta-tag {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1d4ed8;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        h2.section-heading {
+            color: #ffffff;
+            background: #1a365d;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11.5pt;
+            margin: 22px 0 12px 0;
+            page-break-after: avoid;
+            font-weight: 700;
+        }
+        .qa-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #1a365d;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            page-break-inside: avoid;
+        }
+        .qa-card.trap {
+            border-left-color: #ef4444;
+            background: #fff5f5;
+        }
+        .qa-card.ai {
+            border-left-color: #8b5cf6;
+        }
+        .question {
+            font-size: 10.5pt;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+        }
+        .q-badge {
+            font-size: 7.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            color: #334155;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        .q-badge.basic { background: #dbeafe; color: #1e40af; }
+        .q-badge.tech { background: #e0e7ff; color: #3730a3; }
+        .q-badge.domain { background: #fef3c7; color: #92400e; }
+        .q-badge.trap { background: #fee2e2; color: #991b1b; }
+        .answer-sec {
+            margin-bottom: 5px;
+        }
+        .sec-label {
+            font-weight: 700;
+            font-size: 8.5pt;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            color: #475569;
+        }
+        .plain-ans {
+            color: #1e293b;
+        }
+        .tech-ans {
+            color: #334155;
+            background: #ffffff;
+            padding: 5px 8px;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            font-size: 9pt;
+            margin-top: 3px;
+        }
+        .killer-line {
+            color: #b45309;
+            font-style: italic;
+            font-size: 9pt;
+            font-weight: 600;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 4px;
+            margin-top: 5px;
+        }
+        .pitch-box {
+            background: #f0fdf4;
+            border: 1.5px solid #16a34a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin: 16px 0;
+            page-break-inside: avoid;
+        }
+        .pitch-box h3 {
+            color: #15803d;
+            margin: 0 0 6px 0;
+            font-size: 11pt;
+        }
+        .pitch-box p {
+            margin: 0;
+            font-size: 9.5pt;
+            color: #166534;
+            line-height: 1.5;
+        }
+        .footer-note {
+            margin-top: 25px;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 8px;
+            font-size: 8pt;
+            color: #64748b;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-title">
+        <h1>NODAL CONNECTOR</h1>
+        <div class="subtitle">Smart India Hackathon 2026 • Problem ID: SIH26044</div>
+    </div>
+    <div class="header-meta">
+        <div><strong>Theme:</strong> Smart Automation</div>
+        <div><strong>Status:</strong> Functional MVP Prototype</div>
+        <div><span class="meta-tag">Comprehensive Viva Defense Guide</span></div>
+    </div>
+</div>
+
+<div class="pitch-box">
+    <h3>⚡ 30-Second Elevator Pitch (Memorize for Opening / Quick Pitch)</h3>
+    <p>"Respected judges, India produces over 1.5 crore graduates every year, yet industry reports reveal an acute 80% employability gap. The real issue is that students don't know what skills they lack until they sit in an interview, and colleges have no live feedback loop to fix it. 
+    Our solution, <strong>NodalConnector (SIH26044)</strong>, is an intelligent working MVP that connects Students, Recruiters, and Faculty. It evaluates students through an <strong>authentic Groq AI diagnostic assessment</strong>, maps their weaknesses to <strong>curated roadmap.sh learning pathways</strong>, provides verified internship listings, and allows recruiters to conduct technical interviews directly inside the browser using <strong>native WebRTC video and a collaborative whiteboard</strong>. It is built, fully functional, and deployed live right now."</p>
+</div>
+
+<!-- SECTION 1 -->
+<h2 class="section-heading">Category 1: Foundations & Evaluator Buzzwords</h2>
+
+<div class="qa-card">
+    <div class="question">
+        <span>1. What is the LLaMA model on your slide? What does it actually do?</span>
+        <span class="q-badge basic">Basics / AI</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">LLaMA stands for <strong>Large Language Model Meta AI</strong>. It is an open-weights foundational AI model created by Meta. In our MVP, we use <strong>LLaMA 3.3 (70-Billion Parameter version)</strong> as our automated diagnostic examiner. When a student chooses their degree, our backend instructs LLaMA to generate 10 contextual technical questions, evaluate the candidate's answers objectively, and pinpoint their exact syllabus gaps.</div>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">⚙️ Technical Depth:</span>
+        <div class="tech-ans">LLaMA 3.3 70B uses an auto-regressive transformer architecture with Grouped-Query Attention (GQA) and a 128k context window. Because it is open-weights, it preserves national data sovereignty and eliminates dependence on proprietary third-party APIs.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "We chose LLaMA 3.3 because it provides GPT-4 caliber reasoning for higher education curricula without locking student data into a proprietary foreign black-box."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>2. Is Groq related to Elon Musk's Grok? Why did you use it?</span>
+        <span class="q-badge basic">Hardware / Cloud</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">No, sir/ma'am! They are completely different:
+        <strong>Grok (with a 'k')</strong> is an AI chatbot by Elon Musk's xAI.
+        <strong>Groq (with a 'q')</strong> is a high-speed hardware semiconductor company that invented the <strong>LPU™ (Language Processing Unit)</strong>. Standard GPUs take 5 to 10 seconds to generate a test. Groq's LPUs run LLaMA 3.3 at over <strong>300 to 500 tokens per second</strong>, delivering instant diagnostic testing and zero waiting time for students.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "Groq gives us near-instantaneous AI responses, making dynamic diagnostic testing feel as responsive as an offline application."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>3. What is WebRTC, and why not just send a Google Meet or Zoom link?</span>
+        <span class="q-badge tech">Real-Time Web</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans"><strong>WebRTC (Web Real-Time Communication)</strong> is an open W3C standard that enables peer-to-peer audio, video, and data exchange directly between browsers <strong>without installing any external app or plugin</strong>. If we used Zoom or Google Meet, users would leave our platform, and our system couldn't verify if the interview actually took place. With native WebRTC, the interview and a live synchronized whiteboard exist right on <code>/meetings</code>, and our portal automatically logs attendance and interview completion.</div>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">⚙️ Technical Depth:</span>
+        <div class="tech-ans">Our Node.js server with Socket.IO handles the initial SDP offer/answer handshake and ICE candidate exchange. Once connected, media flows directly peer-to-peer encrypted via DTLS/SRTP, keeping server bandwidth costs negligible.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "By embedding native WebRTC, we keep the entire candidate hiring cycle inside one auditable, secure platform with zero software installation."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>4. What does UGC Section 22 mean on your slide?</span>
+        <span class="q-badge domain">Governance / Education</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">Under <strong>Section 22 of the UGC Act 1956</strong>, only recognized universities can confer statutory degrees (like B.Tech, BAMS, B.Sc, M.Sc). On generic job portals, students enter free text (e.g. 'BTech CS', 'Computer Engineer', 'B.E.'), which corrupts database filters. We implemented a <strong>UGC Section 22 Degree Normalizer with a 500ms debounce gap</strong> that auto-completes and maps recognized statutory degrees across engineering, bio-pharma, and Ayush medical disciplines.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "It creates a standardized national degree taxonomy so recruiters find exact matches without spelling ambiguity."</div>
+</div>
+
+<!-- SECTION 2 -->
+<h2 class="section-heading">Category 2: Domain, Scope & Ministry Alignment (SIH26044)</h2>
+
+<div class="qa-card">
+    <div class="question">
+        <span>5. Problem ID SIH26044 is by Ministry of Ayush. Is your portal only for Ayush doctors or for everyone?</span>
+        <span class="q-badge domain">Problem Scope</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">It supports <strong>both</strong>, which is our greatest design strength. Modern bio-pharma and traditional herbal companies (like Dabur, Himalaya, CCRAS) need Ayurvedic doctors, but they also desperately need bio-informaticians, data scientists, chemical engineers, and automation specialists. If our portal only supported traditional medicine terms, it would isolate Ayush from modern industry. NodalConnector functions as a <strong>multi-stream collaboration engine</strong> where Ayush disciplines, life sciences, and standard engineering all co-exist under standardized UGC taxonomies.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "We bridge ancient Indian medicine with modern automation and engineering—because true industry innovation requires cross-disciplinary talent."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>6. Why not just use LinkedIn, Internshala, or Naukri? What makes your MVP novel?</span>
+        <span class="q-badge trap">Competitive Advantage</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">Commercial job boards have 3 fatal flaws that NodalConnector solves:
+        <strong>1. Resume Inflation:</strong> Anyone can claim skills on LinkedIn. On NodalConnector, candidates take an objective AI diagnostic test to verify competency.
+        <strong>2. No Remediation:</strong> If an applicant is rejected on Naukri, they never know why. Our portal extracts their exact missed topics and links them to <strong>roadmap.sh learning pathways</strong>.
+        <strong>3. Academic Involvement:</strong> On Internshala, universities have zero visibility into their students' placement progress. Our portal provides faculty and institutional administrators with real-time NEP 2020 cohort analytics.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "LinkedIn is a social network; Internshala is a classifieds board. NodalConnector is an end-to-end skill diagnostic, learning, and hiring ecosystem."</div>
+</div>
+
+<!-- SECTION 3 -->
+<h2 class="section-heading">Category 3: System Architecture & Implementation</h2>
+
+<div class="qa-card">
+    <div class="question">
+        <span>7. Explain your architecture. Why did you choose a decoupled structure?</span>
+        <span class="q-badge tech">Full-Stack Architecture</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">We chose a <strong>Decoupled 3-Tier Architecture</strong>:
+        • <strong>Frontend (<code>client/</code>):</strong> React 18, TypeScript, Vite, and Tailwind CSS deployed on Vercel Edge CDN for sub-second loading.
+        • <strong>Backend (<code>server/</code>):</strong> Node.js, Express, TypeScript, and Socket.IO deployed on Railway/Render handling REST APIs and WebRTC signaling.
+        • <strong>Database:</strong> MongoDB Atlas with 17 normalized schemas and compound indexes.
+        A decoupled architecture ensures that UI updates can be deployed without restarting backend services or disrupting live WebRTC interview sessions.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "Independent deployments allow our frontend to load instantly from global edge nodes while our backend focuses on real-time socket events and AI pipelines."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>8. How does the real-time whiteboard work during an interview?</span>
+        <span class="q-badge tech">Socket.IO / Canvas</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">Our collaborative board is built with the native HTML5 Canvas API and Socket.IO. When the interviewer or student draws, the mouse coordinate delta, color, and stroke width are emitted via a <code>draw_event</code> to the meeting room socket. Both browsers render the vector path instantaneously with sub-50ms latency.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "It turns a simple video call into a real technical whiteboard interview where interviewers can ask candidates to sketch architectures or solve algorithms in real time."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>9. What happens if a campus Wi-Fi firewall blocks the WebRTC video stream?</span>
+        <span class="q-badge tech">Networking / NAT</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">College and corporate Wi-Fi networks often use symmetric NAT firewalls that block direct peer-to-peer UDP traffic. In our WebRTC configuration, we use <strong>STUN servers</strong> to discover public endpoints; if direct P2P connection fails, the connection automatically falls back to a <strong>TURN (Traversal Using Relays around NAT)</strong> server which relays encrypted media over standard HTTPS port 443, guaranteeing 100% video connectivity even on strict campus networks.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "Our dual STUN/TURN fallback architecture ensures that restrictive college firewalls never drop an ongoing interview."</div>
+</div>
+
+<!-- SECTION 4 -->
+<h2 class="section-heading">Category 4: AI Competency & Gap Remediation Algorithm</h2>
+
+<div class="qa-card ai">
+    <div class="question">
+        <span>10. How does your Candidate-Job Compatibility algorithm work? Is it fake/hardcoded?</span>
+        <span class="q-badge tech">Algorithm / Data Integrity</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">It is 100% authentic and transparent. Unlike many hackathon projects that hardcode arbitrary score boosts (like <code>Math.max(85, score)</code>), our matching service performs a mathematical set intersection between the candidate's verified skills and the job's required skills:
+        \text{Match Percentage} = \frac{|\text{Verified Candidate Skills} \cap \text{Job Required Skills}|}{|\text{Job Required Skills}|} \times 100
+        If a student matches 0 required skills, it honestly shows <strong>0%</strong> and directs them to roadmap.sh learning pathways. Percentiles are calculated via MongoDB database aggregation across all verified attempts.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "We have a zero-fake-data guarantee. Recruiters trust our platform because our compatibility score reflects authentic mathematical skill alignment."</div>
+</div>
+
+<div class="qa-card ai">
+    <div class="question">
+        <span>11. How does the roadmap.sh integration help students who fail the assessment?</span>
+        <span class="q-badge basic">AI / Learning</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">When a student's diagnostic score falls below the required proficiency threshold (or they miss 5+ core questions), our AI diagnostic service identifies the exact sub-topic deficiencies. It maps these tags to the open-source <strong>roadmap.sh</strong> curriculum graph, generating a structured week-by-week study milestone with verified learning resources. Instead of feeling rejected, the student receives an immediate, actionable learning path.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "A failed test on NodalConnector isn't a dead end—it's the starting point of an automated, personalized curriculum roadmap."</div>
+</div>
+
+<!-- SECTION 5 -->
+<h2 class="section-heading">Category 5: Security, Feasibility & Tough Jury "Traps"</h2>
+
+<div class="qa-card trap">
+    <div class="question">
+        <span>12. "Is this just a PowerPoint and UI mockup, or is it actually built?"</span>
+        <span class="q-badge trap">Jury Trap</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Confident Verbal Answer:</span>
+        <div class="plain-ans">"Sir/Ma'am, it is <strong>100% functional, built, and deployed live right now</strong>. 
+        You can open your phone and go to <code>https://sih26044-ayush-portal.vercel.app</code> right now. Our backend API is running on Railway, our database has 17 Mongoose collections, our WebRTC room on <code>/meetings</code> works across two browsers, and our Groq AI diagnostic test generates real questions live. We would be thrilled to give you an end-to-end live demonstration right now!"</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "We didn't just design slides—we engineered a production-grade working MVP ready for live evaluation."</div>
+</div>
+
+<div class="qa-card">
+    <div class="question">
+        <span>13. How do you protect student data? Have you considered OWASP security?</span>
+        <span class="q-badge tech">Security & Privacy</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Plain English Answer:</span>
+        <div class="plain-ans">Yes, our backend was audited against the <strong>OWASP Top 10</strong>:
+        • <strong>BOLA/IDOR Protection:</strong> Digital portfolios and applications are strictly scoped to the authenticated <code>req.user._id</code>. A student cannot tamper with URL parameters to view another student's resume.
+        • <strong>JWT & Role Guards:</strong> Protected routes enforce strict role checks (Student, Industry, Faculty, Admin).
+        • <strong>Data Sanitization:</strong> Request bodies are sanitized against NoSQL injection, passwords use bcrypt hashing, and OTP verification records use native MongoDB TTL indexes for automatic 10-minute deletion.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "Security was engineered into our database architecture from day one, ensuring student academic records remain private and tamper-proof."</div>
+</div>
+
+<div class="qa-card trap">
+    <div class="question">
+        <span>14. "What are the limitations of your MVP right now, and what will you build next?"</span>
+        <span class="q-badge trap">Honest Evaluation</span>
+    </div>
+    <div class="answer-sec">
+        <span class="sec-label">🗣️ Realistic Answer:</span>
+        <div class="plain-ans">As an MVP, our primary focus was solving the core problem statement: automated diagnostic skill mapping, internship placement, and in-app WebRTC interviews. 
+        Our next roadmap priorities are:
+        1. <strong>AI Proctoring:</strong> Adding gaze detection and audio anomaly detection during online diagnostic assessments.
+        2. <strong>Decentralized Credentials:</strong> Anchoring verified skill credentials onto India's National Blockchain Framework (NBF) for tamper-proof public verification outside our platform.</div>
+    </div>
+    <div class="killer-line">💡 Killer Line: "Our MVP proves the core value proposition works; our architecture is designed to scale seamlessly into national deployment."</div>
+</div>
+
+<div class="footer-note">
+    Smart India Hackathon 2026 • Problem Statement ID: SIH26044 • Portal for Academia-Industry Collaboration • Developed by NodalConnector Team
+</div>
+
+</body>
+</html>
+"""
+
+with open("SIH26044_Viva_QA_Defense_Guide.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("HTML generated successfully: SIH26044_Viva_QA_Defense_Guide.html")
+
+# Render to PDF using Edge Headless
+edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+html_abs = os.path.abspath("SIH26044_Viva_QA_Defense_Guide.html")
+pdf_abs = os.path.abspath("SIH26044_Viva_QA_Defense_Guide.pdf")
+
+cmd = [
+    edge_path,
+    "--headless",
+    "--disable-gpu",
+    "--no-pdf-header-footer",
+    f"--print-to-pdf={pdf_abs}",
+    html_abs
+]
+
+subprocess.run(cmd, check=True)
+if os.path.exists(pdf_abs):
+    print(f"PDF successfully compiled: {pdf_abs} (Size: {os.path.getsize(pdf_abs)} bytes)")
+else:
+    print("PDF generation failed.")

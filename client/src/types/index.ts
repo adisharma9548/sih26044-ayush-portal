@@ -125,7 +125,7 @@ export interface LearningProgram {
   syllabus?: string[];
 }
 
-export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'offered' | 'rejected';
+export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'interview_completed' | 'offered' | 'rejected';
 
 export interface Application {
   id: string;
@@ -346,7 +346,7 @@ export interface VerifiedInstitution {
   id: string;
   name: string;
   shortName?: string;
-  type: 'Central University' | 'State University' | 'Deemed University' | 'Institute of National Importance' | 'Affiliated College' | 'Autonomous College' | 'Private University';
+  type: 'Central University' | 'State University' | 'Deemed University' | 'Institute of National Importance' | 'Affiliated College' | 'Autonomous College' | 'Private University' | 'Higher Education Institution';
   affiliatingUniversity?: string | null;
   state: string;
   city: string;

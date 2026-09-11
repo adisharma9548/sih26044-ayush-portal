@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
 import { SkillProfile } from '../models/SkillProfile';
@@ -253,8 +254,8 @@ export const signup = async (req: Request, res: Response) => {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    if (typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 6 characters long.' } });
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: { code: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters long.' } });
     }
 
     // OWASP A01 / API3: Prevent privilege escalation / mass assignment to admin
@@ -454,8 +455,8 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Email, OTP, and new password are required' } });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 6 characters long' } });
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 8 characters long' } });
     }
 
     const cleanEmail = email.toLowerCase().trim();
@@ -470,7 +471,13 @@ export const resetPasswordWithOtp = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { code: 'OTP_EXPIRED', message: 'Reset code expired or not requested. Please request a new one.' } });
     }
 
-    if (record.otp !== cleanOtp) {
+    const recordBuf = Buffer.from(record.otp);
+    const inputBuf = Buffer.from(cleanOtp);
+    const isMatch =
+      recordBuf.length === inputBuf.length &&
+      crypto.timingSafeEqual(recordBuf, inputBuf);
+
+    if (!isMatch) {
       record.attempts += 1;
       if (record.attempts >= 5) {
         await OtpVerification.deleteOne({ _id: record._id });

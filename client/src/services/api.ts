@@ -755,6 +755,25 @@ export const meetingService = {
   getById: async (id: string): Promise<{ data: any }> => {
     return apiRequest(`/meetings/${id}`);
   },
+
+  updateStatus: async (idOrRoom: string, status: string): Promise<{ data: any }> => {
+    return apiRequest(`/meetings/${idOrRoom}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  endMeeting: async (idOrRoom: string): Promise<{ data: any }> => {
+    return apiRequest(`/meetings/${idOrRoom}/end`, {
+      method: 'POST',
+    });
+  },
+
+  deleteMeeting: async (idOrRoom: string): Promise<{ data: any }> => {
+    return apiRequest(`/meetings/${idOrRoom}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 export const userService = {

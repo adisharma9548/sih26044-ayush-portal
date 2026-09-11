@@ -24,13 +24,13 @@ router.post('/study-timeline', optionalAuthenticate, getStudyTimeline);
 router.get('/roadmaps', optionalAuthenticate, getRoadmapsForSkills);
 router.post('/roadmaps', optionalAuthenticate, getRoadmapsForSkills);
 
-// Dynamic AI Generation & Evaluation for Industry & Academia
-router.post('/opportunity-draft', optionalAuthenticate, generateOpportunityDraftController);
-router.post('/proposal-draft', optionalAuthenticate, generateProposalDraftController);
-router.post('/proposal-synergy', optionalAuthenticate, evaluateProposalSynergyController);
-router.post('/learning-draft', optionalAuthenticate, generateLearningModuleDraftController);
-router.post('/learning-insight', optionalAuthenticate, generateLearningMarketInsightController);
-router.post('/mou-synthesize', optionalAuthenticate, synthesizeMouTermsController);
-router.post('/learning-titles', optionalAuthenticate, generateLearningTitlesController);
+// Dynamic AI Generation & Evaluation for Industry & Academia (OWASP API4: Unrestricted Resource Consumption mitigation)
+router.post('/opportunity-draft', authenticate, generateOpportunityDraftController);
+router.post('/proposal-draft', authenticate, generateProposalDraftController);
+router.post('/proposal-synergy', authenticate, evaluateProposalSynergyController);
+router.post('/learning-draft', authenticate, generateLearningModuleDraftController);
+router.post('/learning-insight', authenticate, generateLearningMarketInsightController);
+router.post('/mou-synthesize', authenticate, synthesizeMouTermsController);
+router.post('/learning-titles', authenticate, generateLearningTitlesController);
 
 export default router;

@@ -24,6 +24,8 @@ export const getStatusBadgeColor = (status: ApplicationStatus | string) => {
       return { bg: 'bg-purple-50 text-purple-700 border-purple-200', text: 'Shortlisted' };
     case 'interview_scheduled':
       return { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200', text: 'Interview Scheduled' };
+    case 'interview_completed':
+      return { bg: 'bg-teal-50 text-teal-700 border-teal-200', text: 'Interview Completed' };
     case 'offered':
       return { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', text: 'Offer Extended' };
     case 'rejected':

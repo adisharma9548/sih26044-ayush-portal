@@ -62,7 +62,7 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
         pass: gmailPass,
       },
       tls: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: process.env.NODE_ENV === 'production',
         minVersion: 'TLSv1.2',
         servername: 'smtp.gmail.com',
       },
@@ -82,7 +82,7 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
         pass: process.env.SMTP_PASS?.trim(),
       },
       tls: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: process.env.NODE_ENV === 'production',
       },
       connectionTimeout: 10000,
       greetingTimeout: 10000,

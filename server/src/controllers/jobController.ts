@@ -72,7 +72,8 @@ export const getJobById = async (req: Request, res: Response) => {
 export const createJob = async (req: Request, res: Response) => {
   try {
     const payload = req.body;
-    const postedBy = (req as any).user?._id || payload.postedBy;
+    const user = (req as any).user;
+    const postedBy = (user?.role === 'admin' && payload.postedBy) ? payload.postedBy : user?._id;
 
     const newJob = new Opportunity({
       ...payload,
@@ -159,7 +160,7 @@ export const applyJob = async (req: Request, res: Response) => {
     await application.save();
 
     const notif = new Notification({
-      userId,
+      userId: effectiveUserId,
       title: 'Job Application Received',
       message: `Your application for "${opportunity.title}" at ${opportunity.company} was submitted successfully.`,
       type: 'application',
@@ -167,7 +168,7 @@ export const applyJob = async (req: Request, res: Response) => {
     });
     await notif.save();
 
-    emitToUser(userId, 'notification:new', notif);
+    emitToUser(effectiveUserId, 'notification:new', notif);
 
     // Notify the employer if postedBy is set
     if (opportunity.postedBy) {

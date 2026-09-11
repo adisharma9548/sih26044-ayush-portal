@@ -16,6 +16,7 @@ interface CollaborativeBoardProps {
   onClose: () => void;
   onDraw: (data: DrawStroke) => void;
   onNotesChange: (notes: string) => void;
+  initialStrokes?: DrawStroke[];
   remoteStroke: DrawStroke | null;
   remoteNotes: string | null;
   currentUser: { name: string };
@@ -39,6 +40,7 @@ export const CollaborativeBoard: React.FC<CollaborativeBoardProps> = ({
   onClose,
   onDraw,
   onNotesChange,
+  initialStrokes = [],
   remoteStroke,
   remoteNotes,
   currentUser,
@@ -48,11 +50,20 @@ export const CollaborativeBoard: React.FC<CollaborativeBoardProps> = ({
 
   // Whiteboard states
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const strokesHistory = useRef<DrawStroke[]>([...initialStrokes]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#10b981');
   const [brushSize, setBrushSize] = useState(3);
   const [isEraser, setIsEraser] = useState(false);
   const prevPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Sync initialStrokes when received from room initialization
+  useEffect(() => {
+    if (initialStrokes && initialStrokes.length > 0 && strokesHistory.current.length === 0) {
+      strokesHistory.current = [...initialStrokes];
+      redrawCanvas();
+    }
+  }, [initialStrokes]);
 
   // Notes state
   const [notes, setNotes] = useState<string>(
@@ -67,10 +78,41 @@ export const CollaborativeBoard: React.FC<CollaborativeBoardProps> = ({
     }
   }, [remoteNotes]);
 
-  // Handle remote drawing strokes
-  useEffect(() => {
-    if (!remoteStroke || !canvasRef.current) return;
+  // Redraw full stroke history on canvas
+  const redrawCanvas = () => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const s of strokesHistory.current) {
+      if (s.isClear) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(s.x0 * canvas.width, s.y0 * canvas.height);
+        ctx.lineTo(s.x1 * canvas.width, s.y1 * canvas.height);
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.size;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+  };
+
+  // Handle remote drawing strokes directly on canvas
+  useEffect(() => {
+    if (!remoteStroke) return;
+
+    if (remoteStroke.isClear) {
+      strokesHistory.current = [];
+    } else {
+      strokesHistory.current.push(remoteStroke);
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -88,14 +130,15 @@ export const CollaborativeBoard: React.FC<CollaborativeBoardProps> = ({
     ctx.stroke();
   }, [remoteStroke]);
 
-  // Setup canvas resolution
+  // Setup canvas resolution and immediately redraw existing strokes
   useEffect(() => {
-    if (activeTab === 'whiteboard' && canvasRef.current) {
+    if (activeTab === 'whiteboard' && isOpen && canvasRef.current) {
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
-      if (canvas.width !== rect.width || canvas.height !== rect.height) {
+      if (rect.width > 0 && rect.height > 0) {
         canvas.width = rect.width;
         canvas.height = rect.height;
+        redrawCanvas();
       }
     }
   }, [activeTab, isOpen]);
@@ -133,15 +176,19 @@ export const CollaborativeBoard: React.FC<CollaborativeBoardProps> = ({
     ctx.lineCap = 'round';
     ctx.stroke();
 
-    // Broadcast stroke to remote participant
-    onDraw({
+    const newStroke: DrawStroke = {
       x0: prevPos.current.x,
       y0: prevPos.current.y,
       x1: currentPos.x,
       y1: currentPos.y,
       color: strokeColor,
       size: strokeWidth,
-    });
+    };
+
+    strokesHistory.current.push(newStroke);
+
+    // Broadcast stroke to remote participant
+    onDraw(newStroke);
 
     prevPos.current = currentPos;
   };
@@ -152,6 +199,7 @@ export const CollaborativeBoard: React.FC<CollaborativeBoardProps> = ({
   };
 
   const clearCanvas = () => {
+    strokesHistory.current = [];
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (ctx) {
