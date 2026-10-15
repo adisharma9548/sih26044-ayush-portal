@@ -185,7 +185,7 @@ export const AcademicianDashboard: React.FC = () => {
                     <a
                       href={req.meetingLink}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 flex items-center gap-1"
                     >
                       <Video className="w-3 h-3" />

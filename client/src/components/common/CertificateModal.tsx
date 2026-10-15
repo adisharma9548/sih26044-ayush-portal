@@ -178,7 +178,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
             <a
               href={verifyUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5" />
