@@ -29,6 +29,9 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [twoFactorOtp, setTwoFactorOtp] = useState('');
+  const [twoFactorMessage, setTwoFactorMessage] = useState('');
   const captchaRef = useRef<CaptchaRef>(null);
 
   // Auto-redirect if already logged in (eliminates redirect loop / bouncing)
@@ -57,6 +60,27 @@ export const LoginPage: React.FC = () => {
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
     setLocalError(null);
+    setRequires2FA(false);
+  };
+
+  const handleRedirectByRole = (roleToRedirect: UserRole) => {
+    switch (roleToRedirect) {
+      case 'student':
+      case 'jobseeker':
+        navigate('/student/dashboard', { replace: true });
+        break;
+      case 'industry':
+        navigate('/industry/dashboard', { replace: true });
+        break;
+      case 'academician':
+        navigate('/academician/dashboard', { replace: true });
+        break;
+      case 'admin':
+        navigate('/admin/dashboard', { replace: true });
+        break;
+      default:
+        navigate('/', { replace: true });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,30 +94,35 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      await login(email, password, selectedRole);
+      const res = await login(email, password, selectedRole);
+      if (res && res.requires2FA) {
+        setRequires2FA(true);
+        setTwoFactorMessage(res.message || 'A 6-digit verification code has been dispatched to your email address.');
+        return;
+      }
       const currentUser = useAuthStore.getState().user;
       const effectiveRole = currentUser?.role || selectedRole;
-
-      switch (effectiveRole) {
-        case 'student':
-        case 'jobseeker':
-          navigate('/student/dashboard', { replace: true });
-          break;
-        case 'industry':
-          navigate('/industry/dashboard', { replace: true });
-          break;
-        case 'academician':
-          navigate('/academician/dashboard', { replace: true });
-          break;
-        case 'admin':
-          navigate('/admin/dashboard', { replace: true });
-          break;
-        default:
-          navigate('/', { replace: true });
-      }
+      handleRedirectByRole(effectiveRole);
     } catch (err: any) {
       setLocalError(err.message || 'Login failed. Please check your credentials.');
       captchaRef.current?.refresh();
+    }
+  };
+
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!twoFactorOtp.trim() || twoFactorOtp.trim().length !== 6) {
+      setLocalError('Please enter the full 6-digit verification code.');
+      return;
+    }
+    try {
+      await login(email, password, selectedRole, twoFactorOtp.trim());
+      const currentUser = useAuthStore.getState().user;
+      const effectiveRole = currentUser?.role || selectedRole;
+      handleRedirectByRole(effectiveRole);
+    } catch (err: any) {
+      setLocalError(err.message || 'Invalid or expired 2FA verification code.');
     }
   };
 
@@ -217,87 +246,144 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                {selectedRole === 'admin'
-                  ? 'Administrator Username or Email'
-                  : selectedRole === 'jobseeker'
-                  ? 'Email Address (Any email)'
-                  : selectedRole === 'industry'
-                  ? 'Corporate Work Email'
-                  : 'Institutional University Email (.edu.in)'}
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          {requires2FA ? (
+            <form onSubmit={handleVerify2FA} className="space-y-4">
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-900">Two-Factor Authentication</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {twoFactorMessage}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 text-center">
+                  Enter 6-Digit Verification Code
+                </label>
                 <input
                   type="text"
+                  maxLength={6}
+                  autoFocus
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder={
-                    selectedRole === 'admin'
-                      ? 'admin or admin@nodalconnector.in'
-                      : selectedRole === 'jobseeker'
-                      ? 'candidate@gmail.com'
-                      : selectedRole === 'industry'
-                      ? 'recruiter@company.com'
-                      : selectedRole === 'academician'
-                      ? 'prof.gupta@dtu.edu.in'
-                      : 'aarav.sharma@dtu.edu.in'
-                  }
+                  value={twoFactorOtp}
+                  onChange={(e) => setTwoFactorOtp(e.target.value.replace(/\D/g, ''))}
+                  className="w-full text-center tracking-[0.5em] font-mono text-lg py-3 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="••••••"
                 />
               </div>
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700">Password</label>
-                <Link to="/forgot-password" className="text-xs font-semibold text-emerald-600 hover:underline">
-                  Forgot Password?
-                </Link>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isLoading ? (
+                  <span>Verifying Code...</span>
+                ) : (
+                  <>
+                    <span>Verify Code & Sign In</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRequires2FA(false);
+                  setTwoFactorOtp('');
+                  setLocalError(null);
+                }}
+                className="w-full py-2.5 text-xs text-slate-500 hover:text-slate-700 font-semibold text-center"
+              >
+                ← Back to sign in
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  {selectedRole === 'admin'
+                    ? 'Administrator Username or Email'
+                    : selectedRole === 'jobseeker'
+                    ? 'Email Address (Any email)'
+                    : selectedRole === 'industry'
+                    ? 'Corporate Work Email'
+                    : 'Institutional University Email (.edu.in)'}
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder={
+                      selectedRole === 'admin'
+                        ? 'admin or admin@nodalconnector.in'
+                        : selectedRole === 'jobseeker'
+                        ? 'candidate@gmail.com'
+                        : selectedRole === 'industry'
+                        ? 'recruiter@company.com'
+                        : selectedRole === 'academician'
+                        ? 'prof.gupta@dtu.edu.in'
+                        : 'aarav.sharma@dtu.edu.in'
+                    }
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder={selectedRole === 'admin' ? 'admin' : '••••••••'}
-                />
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Password</label>
+                  <Link to="/forgot-password" className="text-xs font-semibold text-emerald-600 hover:underline">
+                    Forgot Password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder={selectedRole === 'admin' ? 'admin' : '••••••••'}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Anti-Bot Security CAPTCHA */}
-            <Captcha ref={captchaRef} />
+              {/* Anti-Bot Security CAPTCHA */}
+              <Captcha ref={captchaRef} />
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                <input type="checkbox" defaultChecked className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                <span>Keep me signed in</span>
-              </label>
-            </div>
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                  <input type="checkbox" defaultChecked className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                  <span>Keep me signed in</span>
+                </label>
+              </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isLoading ? (
-                <span>Authenticating...</span>
-              ) : (
-                <>
-                  <span>
-                    Sign In as {selectedRole === 'jobseeker' ? 'JOB SEEKER' : selectedRole.toUpperCase()}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isLoading ? (
+                  <span>Authenticating...</span>
+                ) : (
+                  <>
+                    <span>
+                      Sign In as {selectedRole === 'jobseeker' ? 'JOB SEEKER' : selectedRole.toUpperCase()}
+                    </span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
             Don't have an account?{' '}

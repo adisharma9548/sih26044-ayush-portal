@@ -15,6 +15,15 @@ export const ProfileSettingsPage: React.FC = () => {
   const [avatarError, setAvatarError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
+  const initialPrefs = (() => {
+    try {
+      const raw = localStorage.getItem('ayush_portal_notification_prefs');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
+
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -30,10 +39,29 @@ export const ProfileSettingsPage: React.FC = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    emailAlerts: true,
-    smsAlerts: false,
-    opportunityMatchAlerts: true
+    emailAlerts: initialPrefs?.emailAlerts ?? true,
+    smsAlerts: initialPrefs?.smsAlerts ?? false,
+    opportunityMatchAlerts: initialPrefs?.opportunityMatchAlerts ?? true
   });
+
+  const handleSavePreferences = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      localStorage.setItem(
+        'ayush_portal_notification_prefs',
+        JSON.stringify({
+          emailAlerts: formData.emailAlerts,
+          smsAlerts: formData.smsAlerts,
+          opportunityMatchAlerts: formData.opportunityMatchAlerts,
+        })
+      );
+      setSuccessMsg('Notification preferences saved successfully.');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch {
+      setSuccessMsg('Notification preferences updated.');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -420,14 +448,19 @@ export const ProfileSettingsPage: React.FC = () => {
       )}
 
       {activeTab === 'preferences' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+        <form onSubmit={handleSavePreferences} className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
           <div className="space-y-3">
             <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
               <div>
                 <p className="text-xs font-bold text-slate-900">Email Alerts on Application Status</p>
                 <p className="text-[11px] text-slate-500">Receive an email whenever an industry recruiter reviews or shortlists your profile</p>
               </div>
-              <input type="checkbox" defaultChecked className="rounded text-emerald-600 focus:ring-emerald-500" />
+              <input
+                type="checkbox"
+                checked={formData.emailAlerts}
+                onChange={(e) => setFormData({ ...formData, emailAlerts: e.target.checked })}
+                className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+              />
             </label>
 
             <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
@@ -435,7 +468,12 @@ export const ProfileSettingsPage: React.FC = () => {
                 <p className="text-xs font-bold text-slate-900">AI Skill-Match Recommendations</p>
                 <p className="text-[11px] text-slate-500">Weekly digests of newly posted opportunities matching your skill profile</p>
               </div>
-              <input type="checkbox" defaultChecked className="rounded text-emerald-600 focus:ring-emerald-500" />
+              <input
+                type="checkbox"
+                checked={formData.opportunityMatchAlerts}
+                onChange={(e) => setFormData({ ...formData, opportunityMatchAlerts: e.target.checked })}
+                className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+              />
             </label>
 
             <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
@@ -443,10 +481,25 @@ export const ProfileSettingsPage: React.FC = () => {
                 <p className="text-xs font-bold text-slate-900">SMS / WhatsApp Interview Alerts</p>
                 <p className="text-[11px] text-slate-500">High-priority SMS reminders 2 hours before scheduled technical interviews</p>
               </div>
-              <input type="checkbox" className="rounded text-emerald-600 focus:ring-emerald-500" />
+              <input
+                type="checkbox"
+                checked={formData.smsAlerts}
+                onChange={(e) => setFormData({ ...formData, smsAlerts: e.target.checked })}
+                className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+              />
             </label>
           </div>
-        </div>
+
+          <div className="pt-2 flex justify-end">
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              <span>Save Notification Preferences</span>
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );
