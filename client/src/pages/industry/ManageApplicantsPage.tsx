@@ -613,7 +613,7 @@ export const ManageApplicantsPage: React.FC = () => {
                 <a
                   href={selectedFacultyProposal.app.cvLink}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-blue-600 font-bold hover:underline"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />

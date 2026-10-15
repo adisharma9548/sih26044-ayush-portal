@@ -19,7 +19,7 @@ try {
 } catch {}
 
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import nodemailer, { Transporter } from 'nodemailer';
 import { OtpVerification } from '../models/OtpVerification';
 
 // OWASP A02: Cryptographically secure pseudorandom number generator (CSPRNG)
@@ -38,13 +38,13 @@ const getEmailConfig = () => {
   return { appName, supportEmail, senderAddress };
 };
 
-let cachedTransporter: nodemailer.Transporter | null = null;
+let cachedTransporter: Transporter | null = null;
 
 export const resetTransporterCache = (): void => {
   cachedTransporter = null;
 };
 
-export const createTransporter = (preferPort: number = 587): nodemailer.Transporter | null => {
+export const createTransporter = (preferPort: number = 587): Transporter | null => {
   const gmailUser = process.env.GMAIL_USER?.trim();
   // Strip any spaces, tabs, or hyphens often introduced when copying Google 16-character app passwords
   const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/[\s\-]+/g, '').trim();
@@ -93,7 +93,7 @@ export const createTransporter = (preferPort: number = 587): nodemailer.Transpor
   return null;
 };
 
-export const getTransporter = (): nodemailer.Transporter | null => {
+export const getTransporter = (): Transporter | null => {
   if (!cachedTransporter) {
     cachedTransporter = createTransporter(587);
   }
@@ -135,7 +135,7 @@ export const checkEmailConfig = async (): Promise<{
     };
   }
 
-  const verifyWithTimeout = (t: nodemailer.Transporter, timeoutMs: number = 6000): Promise<any> => {
+  const verifyWithTimeout = (t: Transporter, timeoutMs: number = 6000): Promise<any> => {
     return Promise.race([
       t.verify(),
       new Promise((_, reject) =>
@@ -188,7 +188,7 @@ export const checkEmailConfig = async (): Promise<{
 
 export const sendOtpEmail = async (
   email: string,
-  purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' = 'SIGNUP_VERIFICATION'
+  purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' | 'TWO_FACTOR_AUTH' = 'SIGNUP_VERIFICATION'
 ): Promise<{ success: boolean; message: string }> => {
   const cleanEmail = email.toLowerCase().trim();
   const otp = generateOtp();
@@ -206,30 +206,31 @@ export const sendOtpEmail = async (
     );
   }
 
-  // 1. Store OTP securely in database (SHA-256 hashed storage)
+  // 1. Store OTP securely in database (Cryptographic SHA-256 hashed storage ONLY - zero plaintext exposure)
   const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
   await OtpVerification.deleteMany({ email: cleanEmail, purpose });
   await OtpVerification.create({
     email: cleanEmail,
-    otp: process.env.NODE_ENV === 'production' ? '***' : otp,
     otpHash,
     purpose,
     attempts: 0,
   });
 
-  const actionTitle = purpose === 'SIGNUP_VERIFICATION' ? 'Account Verification Code' : 'Password Reset Code';
+  const actionTitle =
+    purpose === 'SIGNUP_VERIFICATION' ? 'Account Verification Code' :
+    purpose === 'TWO_FACTOR_AUTH' ? 'Two-Factor Security Code' :
+    'Password Reset Code';
+
   const subject =
     purpose === 'SIGNUP_VERIFICATION'
       ? `${otp} is your ${appName} verification code`
+      : purpose === 'TWO_FACTOR_AUTH'
+      ? `${otp} is your ${appName} 2FA security code`
       : `${otp} is your ${appName} password reset code`;
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`\n======================================================`);
-    console.log(`📬 [EMAIL OTP DISPATCH] Destination: ${cleanEmail}`);
-    console.log(`🎯 Purpose: ${purpose}`);
-    console.log(`⏳ Valid for 10 minutes (Hashed securely with SHA-256)`);
-    console.log(`======================================================\n`);
-  }
+  // Sanitized logging: never print plaintext OTP to logs/stdout (OWASP A09: Security Logging and Monitoring)
+  const maskedEmail = cleanEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => `${a}${'*'.repeat(Math.min(b.length, 5))}${c}`);
+  console.log(`[EMAIL DISPATCH] Verification code dispatched to ${maskedEmail} (Purpose: ${purpose}, TTL: 10m)`);
 
   const htmlBody = `
 <!DOCTYPE html>
@@ -331,13 +332,13 @@ export const sendOtpEmail = async (
 export const verifyOtp = async (
   email: string,
   inputOtp: string,
-  purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' = 'SIGNUP_VERIFICATION',
+  purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' | 'TWO_FACTOR_AUTH' = 'SIGNUP_VERIFICATION',
   consumeOnSuccess: boolean = true
 ): Promise<boolean> => {
   const record = await OtpVerification.findOne({
     email: email.toLowerCase(),
     purpose,
-  });
+  }).select('+otp');
 
   if (!record) {
     return false;
@@ -377,7 +378,7 @@ export const verifyOtp = async (
 
 export const consumeOtp = async (
   email: string,
-  purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' = 'SIGNUP_VERIFICATION'
+  purpose: 'SIGNUP_VERIFICATION' | 'PASSWORD_RESET' | 'TWO_FACTOR_AUTH' = 'SIGNUP_VERIFICATION'
 ): Promise<void> => {
   await OtpVerification.deleteMany({ email: email.toLowerCase().trim(), purpose });
 };

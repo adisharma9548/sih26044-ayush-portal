@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { MouProposal } from '../models/MouProposal';
 import { Partner } from '../models/Partner';
@@ -125,7 +126,7 @@ export const reviewProposal = async (req: Request, res: Response) => {
     proposal.reviewNotes = reviewNotes || '';
 
     if (status === 'approved') {
-      proposal.digitalSealId = `MOU-SEAL-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      proposal.digitalSealId = `MOU-SEAL-${new Date().getFullYear()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
       // Update or create Partner record
       const partnerName = proposal.initiatorRole === 'industry' ? proposal.initiatorInstitution : proposal.targetOrganization;

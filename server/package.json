@@ -10,7 +10,8 @@
     "build:client": "tsc",
     "build:server": "tsc",
     "start": "node dist/server.js",
-    "seed": "ts-node --transpile-only src/seeds/seedDatabase.ts"
+    "seed": "ts-node --transpile-only src/seeds/seedDatabase.ts",
+    "test:verify": "ts-node --transpile-only src/tests/verifySuite.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -32,11 +33,15 @@
     "mongoose": "^8.2.1",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^9.1.1",
+    "nodemailer": "^10.1.1",
+    "pdf-parse": "^2.4.5",
     "redis": "^4.6.13",
     "socket.io": "^4.7.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "@types/pdf-parse": "^1.1.5"
   }
 }
