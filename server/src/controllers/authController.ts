@@ -8,11 +8,28 @@ import { OtpVerification } from '../models/OtpVerification';
 import { sendOtpEmail, verifyOtp, consumeOtp } from '../services/emailService';
 import { AuthRequest, getJwtSecret } from '../middleware/auth';
 import { recordAuditLog } from '../services/auditService';
+import { dispatchNotification } from '../services/notificationService';
+
+export const validatePasswordPolicy = (password: string): { valid: boolean; message?: string } => {
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return { valid: false, message: 'Password must be at least 8 characters long.' };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one uppercase letter.' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one number.' };
+  }
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one special character.' };
+  }
+  return { valid: true };
+};
 
 const generateToken = (userId: string, role: string): string => {
   const secret = getJwtSecret();
   const options: SignOptions = {
-    expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any,
+    expiresIn: (process.env.JWT_EXPIRES_IN || '24h') as any,
   };
   return jwt.sign({ id: userId, role }, secret, options);
 };
@@ -29,17 +46,16 @@ export const login = async (req: Request, res: Response) => {
       return res.status(400).json({ error: { code: 'ROLE_REQUIRED', message: 'Login section role is required' } });
     }
 
-    const allowedRoles = ['student', 'jobseeker', 'industry', 'academician', 'admin'];
+    const allowedRoles = ['student', 'jobseeker', 'industry', 'academician', 'admin', 'institution'];
     if (!allowedRoles.includes(requestedRole)) {
       return res.status(400).json({ error: { code: 'INVALID_ROLE', message: 'Invalid login section specified' } });
     }
 
     const cleanId = email.toLowerCase().trim();
     const configuredAdminEmail = (process.env.ADMIN_EMAIL || process.env.BOOTSTRAP_ADMIN_EMAIL || 'admin@nodalconnector.in').toLowerCase().trim();
-    let query: any = { email: cleanId };
-    if (cleanId === 'admin' || cleanId === configuredAdminEmail) {
-      query = { $or: [{ email: 'admin' }, { email: configuredAdminEmail }, { role: 'admin' }] };
-    }
+    // Deterministic lookup: alias 'admin' to configured admin email, prevent arbitrary role wildcard matches
+    const lookupEmail = (cleanId === 'admin') ? configuredAdminEmail : cleanId;
+    const query: any = { email: lookupEmail };
 
     const user: any = await User.findOne(query).select('+password');
 
@@ -68,6 +84,40 @@ export const login = async (req: Request, res: Response) => {
         details: { reason: 'Incorrect password' },
       });
       return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' } });
+    }
+
+    // Demo Account Isolation & Gating (Security Remediation)
+    if (user.isDemo || user.accountType === 'demo') {
+      if (process.env.ENABLE_DEMO_ACCOUNTS === 'false') {
+        return res.status(403).json({
+          error: {
+            code: 'DEMO_DISABLED',
+            message: 'Demo evaluation accounts are disabled in this environment.',
+          },
+        });
+      }
+
+      const accessCode = req.headers['x-demo-access-code'] || req.body.demoAccessCode;
+      const isProd = process.env.NODE_ENV === 'production';
+      const expectedCode = process.env.DEMO_ACCESS_CODE || (!isProd ? 'DEMO-GATE-AYUSH-2026' : '');
+
+      if (!expectedCode || !accessCode || accessCode !== expectedCode) {
+        await recordAuditLog({
+          req,
+          userId: user._id.toString(),
+          userEmail: user.email,
+          action: 'DEMO_LOGIN_BLOCKED',
+          entity: 'User',
+          status: 'FAILURE',
+          details: { reason: 'Missing, invalid, or unconfigured demo access code' },
+        });
+        return res.status(403).json({
+          error: {
+            code: 'DEMO_ACCESS_RESTRICTED',
+            message: 'Demo accounts are restricted for security. An authorized x-demo-access-code header is required to login.',
+          },
+        });
+      }
     }
 
     // Account verification / status validation
@@ -103,6 +153,28 @@ export const login = async (req: Request, res: Response) => {
           message: 'These credentials do not belong to this login type.',
         },
       });
+    }
+
+    // Two-Factor Authentication Check
+    if (user.twoFactorEnabled) {
+      const { otp } = req.body;
+      if (!otp) {
+        await sendOtpEmail(user.email, 'TWO_FACTOR_AUTH');
+        return res.json({
+          data: {
+            requires2FA: true,
+            email: user.email,
+            message: 'A 6-digit 2FA verification code has been dispatched to your email address.',
+          },
+        });
+      }
+
+      const isValidOtp = await verifyOtp(user.email, otp.toString().trim(), 'TWO_FACTOR_AUTH');
+      if (!isValidOtp) {
+        return res.status(401).json({
+          error: { code: 'INVALID_2FA_OTP', message: 'Invalid or expired 2FA verification code.' },
+        });
+      }
     }
 
     user.loginCount = (user.loginCount || 0) + 1;
@@ -387,7 +459,7 @@ export const signup = async (req: Request, res: Response) => {
       });
     }
 
-    const allowedRoles = ['student', 'jobseeker', 'industry', 'academician'];
+    const allowedRoles = ['student', 'jobseeker', 'industry', 'academician', 'institution'];
     const effectiveRole = allowedRoles.includes(role) ? role : 'student';
 
     const resolvedDomain = resolveDomainFromUserContext({
@@ -404,6 +476,8 @@ export const signup = async (req: Request, res: Response) => {
       email: cleanEmail,
       password: password,
       role: effectiveRole,
+      accountType: 'real',
+      isDemo: false,
       institution: institution || companyName,
       degree: degree || '',
       academicField: academicField || '',
@@ -414,6 +488,14 @@ export const signup = async (req: Request, res: Response) => {
       graduationYear: graduationYear ? Number(graduationYear) : undefined,
       ayushDomain: resolvedDomain,
       facultyId: facultyId?.trim(),
+      location: req.body.location || '',
+      locationStructured: req.body.locationStructured || (req.body.state ? {
+        country: 'India',
+        state: req.body.state,
+        district: req.body.district || '',
+        city: req.body.city || '',
+        source: 'user_entered',
+      } : undefined),
       loginCount: 1,
       lastLoginAt: new Date(),
       isEmailVerified: true,
@@ -670,7 +752,7 @@ export const resetPasswordWithToken = async (req: Request, res: Response) => {
 
     let decoded: any;
     try {
-      decoded = jwt.verify(resetToken, getJwtSecret());
+      decoded = jwt.verify(resetToken, getJwtSecret(), { algorithms: ['HS256'] });
     } catch (jwtErr: any) {
       return res.status(401).json({
         error: {
@@ -721,10 +803,106 @@ export const resetPasswordWithToken = async (req: Request, res: Response) => {
       details: { method: 'SECURE_TOKEN_RESET' },
     });
 
+    await dispatchNotification({
+      recipientId: user._id.toString(),
+      type: 'SECURITY_ALERT',
+      title: 'Password Successfully Changed',
+      message: 'Your account password was updated. If you did not perform this action, please contact support immediately.',
+      link: '/profile',
+      deliveryChannels: ['IN_APP', 'EMAIL'],
+    });
+
     res.json({
       data: {
         success: true,
         message: 'Password successfully updated. You can now log in with your new credentials.',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+/**
+ * POST /api/auth/2fa/email/request
+ * Generates 6-digit OTP, sends email, stores in OtpVerification with 10min TTL.
+ */
+export const request2faOtp = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    await sendOtpEmail(user.email, 'TWO_FACTOR_AUTH');
+
+    await recordAuditLog({
+      req,
+      userId: user._id.toString(),
+      userEmail: user.email,
+      action: '2FA_OTP_REQUESTED',
+      entity: 'User',
+      status: 'SUCCESS',
+    });
+
+    res.json({
+      data: {
+        success: true,
+        message: `A 6-digit 2FA verification code has been dispatched to ${user.email}. Valid for 10 minutes.`,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+/**
+ * POST /api/auth/2fa/email/verify
+ * Verifies OTP and enables 2FA on account.
+ */
+export const verify2faOtp = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ error: { code: 'OTP_REQUIRED', message: '6-digit OTP is required.' } });
+    }
+
+    const isValid = await verifyOtp(user.email, otp.toString().trim(), 'TWO_FACTOR_AUTH');
+    if (!isValid) {
+      return res.status(400).json({ error: { code: 'INVALID_OTP', message: 'Invalid or expired 2FA code.' } });
+    }
+
+    user.twoFactorEnabled = true;
+    await user.save();
+
+    await recordAuditLog({
+      req,
+      userId: user._id.toString(),
+      userEmail: user.email,
+      action: '2FA_ENABLED',
+      entity: 'User',
+      status: 'SUCCESS',
+    });
+
+    await dispatchNotification({
+      recipientId: user._id.toString(),
+      type: 'TWO_FACTOR_UPDATE',
+      title: 'Two-Factor Authentication Enabled',
+      message: 'Email-based 2FA security has been successfully enabled on your account.',
+      link: '/profile',
+      deliveryChannels: ['IN_APP', 'EMAIL'],
+    });
+
+    res.json({
+      data: {
+        success: true,
+        twoFactorEnabled: true,
+        message: 'Two-Factor Authentication successfully enabled for your account.',
       },
     });
   } catch (err: any) {

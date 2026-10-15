@@ -11,9 +11,19 @@ import {
   deleteLearningProgram,
   getLearningRecommendations,
 } from '../controllers/learningController';
+import {
+  getCurrentLearningPath,
+  generateLearningPath,
+  updateMilestoneStatus,
+} from '../controllers/learningPathController';
 import { authenticate, authorize } from '../middleware/auth';
 
 const router = Router();
+
+// Interactive Visual AI Learning Path (Persistent Roadmap)
+router.get('/path/current', authenticate, getCurrentLearningPath);
+router.post('/path/generate', authenticate, generateLearningPath);
+router.patch('/path/milestone/:milestoneId', authenticate, updateMilestoneStatus);
 
 router.get('/programs', getAllLearningPrograms);
 router.get('/recommendations', authenticate, getLearningRecommendations);

@@ -1,10 +1,22 @@
-export type UserRole = 'student' | 'jobseeker' | 'industry' | 'academician' | 'admin';
+export type UserRole = 'student' | 'jobseeker' | 'industry' | 'academician' | 'admin' | 'institution';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  accountType?: 'real' | 'demo';
+  isDemo?: boolean;
+  resumeId?: string;
+  collegeId?: string;
+  locationStructured?: {
+    country?: string;
+    state?: string;
+    district?: string;
+    city?: string;
+    village?: string;
+    rawInput?: string;
+  };
   profilePicture?: string;
   institution?: string;
   industry?: string;
@@ -36,6 +48,8 @@ export interface User {
     roadmaps?: RoadmapGuidance[];
     createdAt?: string;
   };
+  twoFactorEnabled?: boolean;
+  institutionId?: string;
   verified?: boolean;
 }
 
@@ -154,6 +168,40 @@ export interface LearningProgram {
   targetedGapSkill?: string;
   gapPriority?: string;
   gapPercentage?: number | null;
+}
+
+export interface LearningPathMilestone {
+  id: string;
+  stepNumber: number;
+  title: string;
+  description: string;
+  estimatedHours: string;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  topics: string[];
+  learningOutcomes: string[];
+  status: 'locked' | 'current' | 'completed';
+  completedAt?: string;
+  resources: Array<{
+    title: string;
+    url: string;
+    type?: string;
+  }>;
+}
+
+export interface LearningPath {
+  _id?: string;
+  id?: string;
+  userId: string;
+  title: string;
+  targetRole: string;
+  targetSkill?: string;
+  domain: string;
+  overview: string;
+  milestones: LearningPathMilestone[];
+  overallProgress: number;
+  isArchived?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type ApplicationStatus = 'applied' | 'in_review' | 'shortlisted' | 'interview_scheduled' | 'interview_completed' | 'offered' | 'rejected';
@@ -415,3 +463,293 @@ export interface AcademicValidationResult {
   message: string;
   reason?: string;
 }
+
+export interface CollegeSource {
+  field: string;
+  sourceUrl: string;
+  sourceType: string;
+}
+
+export interface CollegeLocation {
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+  coordinates?: {
+    lat?: number;
+    lng?: number;
+  };
+}
+
+export interface CollegeContact {
+  email?: string;
+  phone?: string;
+  website?: string;
+}
+
+export interface College {
+  id?: string;
+  _id?: string;
+  officialDomain: string;
+  slug: string;
+  name: string;
+  about?: string;
+  departments: any[];
+  programs: any[];
+  skills: any[];
+  opportunities: any[];
+  collaborations: any[];
+  placements: any[];
+  location: CollegeLocation;
+  contact: CollegeContact;
+  verificationStatus: 'UNCLAIMED' | 'VERIFIED';
+  sources: CollegeSource[];
+  createdAt: string;
+  updatedAt: string;
+  lastUpdated: string;
+}
+
+export interface CollegeSearchResult {
+  name: string;
+  domain: string;
+  location: string;
+  confidence: number;
+}
+
+export interface InstitutionClaim {
+  id: string;
+  collegeSlug: string;
+  collegeName: string;
+  representativeName: string;
+  email: string;
+  verificationCode: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  adminReviewNotes?: string;
+  createdAt: string;
+}
+
+export interface StudentAnalytics {
+  profileCompletion: number;
+  applicationsSent: number;
+  applicationsViewed: number;
+  interviewSuccessRate: number | null;
+  averageSkillMatch: number;
+  topMatchingJobs: Array<{
+    jobId: string;
+    title: string;
+    company: string;
+    type: string;
+    matchScore: number;
+  }>;
+}
+
+export interface CompanyAnalytics {
+  totalJobPostings: number;
+  totalApplications: number;
+  applicationsByStatus: {
+    APPLIED: number;
+    REVIEWED: number;
+    SHORTLISTED: number;
+    REJECTED: number;
+  };
+  averageTimeToHire: number;
+  topInDemandSkills: Array<{
+    skill: string;
+    count: number;
+  }>;
+  applicantsByEducation: Record<string, number>;
+}
+
+export interface AdminAnalytics {
+  userCounts: {
+    students: number;
+    companies: number;
+    colleges: number;
+    admins: number;
+  };
+  userGrowth: Array<{
+    month: string;
+    count: number;
+  }>;
+  jobActivityStats: {
+    posted: number;
+    applied: number;
+    hired: number;
+  };
+  placementRate: number;
+  topSearchQueries: Array<{
+    query: string;
+    count: number;
+  }>;
+  institutionDiscoveryStats: {
+    searched: number;
+    discovered: number;
+    verified: number;
+  };
+}
+
+export interface IResumeEducation {
+  institution?: string;
+  degree?: string;
+  fieldOfStudy?: string;
+  startYear?: number;
+  endYear?: number;
+  grade?: string;
+}
+
+export interface IResumeSkill {
+  name: string;
+  level?: number;
+  category?: string;
+}
+
+export interface IResumeExperience {
+  organization?: string;
+  role?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface IResumeProject {
+  title: string;
+  description?: string;
+  technologies?: string[];
+}
+
+export interface IResumeCertification {
+  title: string;
+  issuer?: string;
+  issueDate?: string;
+}
+
+export interface IResumeParsedData {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  location?: {
+    city?: string;
+    district?: string;
+    state?: string;
+    country?: string;
+  };
+  education?: IResumeEducation[];
+  skills?: IResumeSkill[];
+  experience?: IResumeExperience[];
+  certifications?: IResumeCertification[];
+  projects?: IResumeProject[];
+}
+
+export interface IResume {
+  id?: string;
+  _id?: string;
+  userId: string;
+  fileUrl: string;
+  originalFilename: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+  extractionStatus: 'pending' | 'processing' | 'success' | 'completed' | 'failed' | 'not_attempted';
+  extractionError?: string;
+  extractedData?: IResumeParsedData;
+  confirmedData?: IResumeParsedData;
+  version?: number;
+}
+
+export interface ICareerRole {
+  id?: string;
+  _id?: string;
+  name: string;
+  slug: string;
+  category: string;
+  description: string;
+  requiredSkills: Array<{
+    name: string;
+    requiredLevel: number;
+    importance: 'critical' | 'high' | 'medium' | 'low';
+    weight?: number;
+  }>;
+  preferredSkills?: Array<{
+    name: string;
+    requiredLevel?: number;
+    importance?: 'critical' | 'high' | 'medium' | 'low';
+    weight?: number;
+  }>;
+  source: string;
+  company?: string;
+  location?: string;
+  type?: 'internship' | 'job';
+  stipend?: string;
+  salary?: string;
+  isOpportunity?: boolean;
+  opportunityId?: string;
+  recommended?: boolean;
+  relevanceScore?: number;
+  matchedSkillsCount?: number;
+}
+
+export interface IAdminQuestion {
+  _id?: string;
+  id?: string;
+  numericId: number;
+  category: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  weight: number;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  status: 'active' | 'retired' | 'under_review';
+}
+
+export interface IInstitutionAnalytics {
+  college: {
+    id: string;
+    name: string;
+    slug: string;
+    type?: string;
+    state?: string;
+    district?: string;
+    city?: string;
+    verificationStatus?: string;
+    about?: string;
+    contact?: { email?: string; phone?: string; website?: string };
+    departments?: any[];
+  };
+  metrics: {
+    totalStudents: number;
+    assessedStudents: number;
+    assessmentParticipationRate: number;
+    averageSkillScore: number;
+    placementReadyCount: number;
+    placementReadinessRate: number;
+  };
+  departmentBreakdown: Array<{
+    department: string;
+    studentCount: number;
+    assessedCount: number;
+    averageScore: number;
+  }>;
+  topSkills: Array<{
+    name: string;
+    category: string;
+    studentCount: number;
+    averageProficiency: number;
+  }>;
+  laggingSkills: Array<{
+    name: string;
+    studentsAffected: number;
+    averageGapPercentage: number;
+  }>;
+  recentAssessments: Array<{
+    id: string;
+    studentName: string;
+    studentEmail: string;
+    score: number;
+    evaluatedAt: string;
+    department: string;
+  }>;
+}
+
+

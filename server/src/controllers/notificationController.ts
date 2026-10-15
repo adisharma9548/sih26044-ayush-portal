@@ -10,9 +10,24 @@ import { Opportunity } from '../models/Opportunity';
 export const getAllNotifications = async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    const { limit, skip, unread } = req.query;
+    const queryLimit = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), 100);
+    const querySkip = Math.max(parseInt(skip as string, 10) || 0, 0);
+
+    const filter: any = {
+      $or: [{ userId: user._id.toString() }, { recipientId: user._id.toString() }],
+    };
+
+    if (unread === 'true') {
+      filter.read = false;
+    }
 
     // Dedicated Administrative Notifications for Admin role
-    if (user && user.role === 'admin') {
+    if (user.role === 'admin') {
       const [pendingPartners, pendingMous, totalStudents, activeOpportunities] = await Promise.all([
         Partner.countDocuments({ status: 'Pending' }),
         MouProposal.countDocuments({ status: 'pending' }),
@@ -26,6 +41,7 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
         adminNotifs.push({
           id: 'admin_notif_pending_partners',
           userId: user._id.toString(),
+          recipientId: user._id.toString(),
           title: 'Pending Employer Accreditations',
           message: `${pendingPartners} corporate partner organization${pendingPartners > 1 ? 's are' : ' is'} awaiting administrative review and KYC approval.`,
           read: false,
@@ -39,6 +55,7 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
         adminNotifs.push({
           id: 'admin_notif_pending_mous',
           userId: user._id.toString(),
+          recipientId: user._id.toString(),
           title: 'MoU Endorsement Awaiting Digital Seal',
           message: `${pendingMous} collaborative industry-academia MoU proposal${pendingMous > 1 ? 's require' : ' requires'} Directorate review and digital sealing.`,
           read: false,
@@ -51,6 +68,7 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
       adminNotifs.push({
         id: 'admin_notif_scholars_registered',
         userId: user._id.toString(),
+        recipientId: user._id.toString(),
         title: 'National Scholar Cohort Roster',
         message: `${totalStudents} student scholar${totalStudents !== 1 ? 's' : ''} currently enrolled in the National Stakeholder Registry.`,
         read: true,
@@ -62,6 +80,7 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
       adminNotifs.push({
         id: 'admin_notif_system_health',
         userId: user._id.toString(),
+        recipientId: user._id.toString(),
         title: 'Platform Infrastructure Operational',
         message: `MongoDB Atlas cluster synchronized with TLS encryption. Groq AI diagnostic service online.`,
         read: true,
@@ -74,6 +93,7 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
         adminNotifs.push({
           id: 'admin_notif_opportunities_active',
           userId: user._id.toString(),
+          recipientId: user._id.toString(),
           title: 'Active Opportunity Listings',
           message: `${activeOpportunities} verified internship and job openings active across accredited domains.`,
           read: true,
@@ -83,25 +103,50 @@ export const getAllNotifications = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      // Include any explicitly saved notifications
-      const storedNotifs = await Notification.find({ userId: user._id.toString() }).sort({ createdAt: -1 }).lean();
+      const storedNotifs = await Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(querySkip)
+        .limit(queryLimit)
+        .lean();
+
       const formattedStored = storedNotifs.map((n: any) => ({
         ...n,
         id: (n.id || n._id).toString(),
       }));
+
       return res.json({ data: [...adminNotifs, ...formattedStored] });
     }
 
-    if (!user) {
-      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
-    }
+    const notifs = await Notification.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(querySkip)
+      .limit(queryLimit)
+      .lean();
 
-    const notifs = await Notification.find({ userId: user._id.toString() }).sort({ createdAt: -1 }).lean();
     const formattedNotifs = notifs.map((n: any) => ({
       ...n,
       id: (n.id || n._id).toString(),
     }));
+
     res.json({ data: formattedNotifs });
+  } catch (err: any) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+};
+
+export const getUnreadCount = async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
+    }
+
+    const count = await Notification.countDocuments({
+      $or: [{ userId: user._id.toString() }, { recipientId: user._id.toString() }],
+      read: false,
+    });
+
+    res.json({ data: { count } });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
   }
@@ -118,7 +163,7 @@ export const markAsRead = async (req: AuthRequest, res: Response) => {
     if (mongoose.isValidObjectId(id)) {
       const query: any = { _id: id };
       if (user.role !== 'admin') {
-        query.userId = user._id.toString();
+        query.$or = [{ userId: user._id.toString() }, { recipientId: user._id.toString() }];
       }
       await Notification.findOneAndUpdate(query, { read: true });
     }
@@ -135,7 +180,10 @@ export const markAllAsRead = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     }
 
-    await Notification.updateMany({ userId: user._id.toString() }, { read: true });
+    await Notification.updateMany(
+      { $or: [{ userId: user._id.toString() }, { recipientId: user._id.toString() }] },
+      { read: true }
+    );
     res.json({ data: true });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });
@@ -149,7 +197,9 @@ export const clearAllNotifications = async (req: AuthRequest, res: Response) => 
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } });
     }
 
-    await Notification.deleteMany({ userId: user._id.toString() });
+    await Notification.deleteMany({
+      $or: [{ userId: user._id.toString() }, { recipientId: user._id.toString() }],
+    });
     res.json({ data: true });
   } catch (err: any) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } });

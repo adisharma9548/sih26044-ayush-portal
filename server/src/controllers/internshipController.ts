@@ -7,6 +7,7 @@ import { User } from '../models/User';
 import { emitToUser, emitBroadcast } from '../services/socketService';
 import { calculateCandidateOpportunityMatch } from '../services/matchingService';
 import { recordOpportunityBenchmark } from '../services/benchmarkService';
+import { dispatchNotification } from '../services/notificationService';
 
 export const getAllInternships = async (req: Request, res: Response) => {
   try {
@@ -28,11 +29,12 @@ export const getAllInternships = async (req: Request, res: Response) => {
     }
 
     if (search) {
-      const q = search.toString();
+      const q = search.toString().trim();
+      const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       query.$or = [
-        { title: { $regex: q, $options: 'i' } },
-        { company: { $regex: q, $options: 'i' } },
-        { skillsRequired: { $in: [new RegExp(q, 'i')] } },
+        { title: { $regex: escapedQ, $options: 'i' } },
+        { company: { $regex: escapedQ, $options: 'i' } },
+        { skillsRequired: { $in: [new RegExp(escapedQ, 'i')] } },
       ];
     }
 
@@ -125,7 +127,7 @@ export const applyInternship = async (req: Request, res: Response) => {
 
     // OWASP A01: Enforce that application is bound to the authenticated user (prevent identity spoofing)
     const authUser = (req as any).user;
-    const effectiveUserId = authUser ? authUser._id.toString() : userId;
+    const effectiveUserId = (authUser?.role === 'admin' && userId) ? userId : authUser?._id?.toString();
 
     if (!effectiveUserId) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required to apply' } });
@@ -178,29 +180,29 @@ export const applyInternship = async (req: Request, res: Response) => {
     await application.save();
 
     // Create persistent notification for student
-    const notif = new Notification({
-      userId: effectiveUserId,
+    await dispatchNotification({
+      recipientId: effectiveUserId,
+      recipientType: 'STUDENT',
+      type: 'JOB_APPLICATION_STATUS',
       title: 'Application Submitted',
       message: `Your application for "${opportunity.title}" at ${opportunity.company} was received. Compatibility: ${matchResult.compatibilityScore}%.`,
-      type: 'application',
       link: '/student/applications',
+      data: { opportunityId: opportunity._id.toString(), applicationId: application._id.toString() },
+      deliveryChannels: ['IN_APP'],
     });
-    await notif.save();
-
-    // Emit real-time notification to student
-    emitToUser(effectiveUserId, 'notification:new', notif);
 
     // Notify the employer if postedBy is set
     if (opportunity.postedBy) {
-      const employerNotif = new Notification({
-        userId: opportunity.postedBy.toString(),
+      await dispatchNotification({
+        recipientId: opportunity.postedBy.toString(),
+        recipientType: 'COMPANY',
+        type: 'JOB_APPLICATION_STATUS',
         title: 'New Candidate Application',
         message: `${application.studentName} applied for "${opportunity.title}".`,
-        type: 'application',
         link: '/industry/applicants',
+        data: { opportunityId: opportunity._id.toString(), applicationId: application._id.toString() },
+        deliveryChannels: ['IN_APP', 'EMAIL'],
       });
-      await employerNotif.save();
-      emitToUser(opportunity.postedBy.toString(), 'notification:new', employerNotif);
       emitToUser(opportunity.postedBy.toString(), 'application:new', application);
     }
 

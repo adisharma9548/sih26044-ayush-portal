@@ -10,7 +10,12 @@ interface AuthState {
   isLoading: boolean;
   isCheckingAuth: boolean;
   error: string | null;
-  login: (email: string, password?: string, role?: UserRole) => Promise<void>;
+  login: (
+    email: string,
+    password?: string,
+    role?: UserRole,
+    otp?: string
+  ) => Promise<{ requires2FA?: boolean; message?: string } | void>;
   signup: (data: Partial<User>) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
@@ -75,10 +80,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email: string, password?: string, role: UserRole = 'student') => {
+  login: async (email: string, password?: string, role: UserRole = 'student', otp?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await api.auth.login(email, password, role);
+      const res = await api.auth.login(email, password, role, otp);
+      if (res.data?.requires2FA) {
+        set({ isLoading: false });
+        return { requires2FA: true, message: res.data.message };
+      }
+      if (!res.data?.user || !res.data?.token) {
+        throw new Error('Authentication failed: Missing session data.');
+      }
       localStorage.setItem('ayush_portal_role', res.data.user.role);
       localStorage.setItem('ayush_portal_token', res.data.token);
       localStorage.setItem('ayush_portal_user', JSON.stringify(res.data.user));

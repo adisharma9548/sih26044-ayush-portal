@@ -6,7 +6,8 @@ export type VerificationSourceType =
   | 'faculty_endorsement'
   | 'certificate'
   | 'project'
-  | 'industry_validation';
+  | 'industry_validation'
+  | 'resume';
 
 export interface ISkillEvidence {
   sourceType: VerificationSourceType;
@@ -29,6 +30,7 @@ export interface ISkillProfileItem {
   verificationStatus: VerificationStatus;
   verificationSources?: ISkillEvidence[];
   category: string;
+  source?: 'assessment' | 'resume' | 'manual' | 'course';
 }
 
 export type SkillGapStatus = 'MATCHED' | 'PARTIAL' | 'MISSING' | 'NO_BENCHMARK_DATA';
@@ -42,6 +44,7 @@ export interface ISkillGapItem {
   priority?: 'High' | 'Medium' | 'Low' | null;
   recommendedProgramId?: string;
   reason?: string;
+  source?: string;
 }
 
 export interface ISkillProfileContext {
@@ -135,7 +138,7 @@ const SkillProfileSchema: Schema = new Schema(
           {
             sourceType: {
               type: String,
-              enum: ['assessment', 'faculty_endorsement', 'certificate', 'project', 'industry_validation'],
+              enum: ['assessment', 'faculty_endorsement', 'certificate', 'project', 'industry_validation', 'resume'],
               required: true,
             },
             referenceId: { type: String },
@@ -147,6 +150,11 @@ const SkillProfileSchema: Schema = new Schema(
           },
         ],
         category: { type: String, default: 'General' },
+        source: {
+          type: String,
+          enum: ['assessment', 'resume', 'manual', 'course'],
+          default: 'manual',
+        },
       },
     ],
     gapAnalysis: [

@@ -39,6 +39,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     jobseeker: 'bg-teal-600 text-white border-teal-500',
     industry: 'bg-blue-600 text-white border-blue-500',
     academician: 'bg-purple-600 text-white border-purple-500',
+    institution: 'bg-emerald-700 text-white border-emerald-600',
     admin: 'bg-indigo-600 text-white border-indigo-500',
   };
 

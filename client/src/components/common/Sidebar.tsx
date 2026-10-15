@@ -18,7 +18,10 @@ import {
   UserCheck,
   Settings,
   GraduationCap,
-  Video
+  Video,
+  FileText,
+  Target,
+  HelpCircle,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,6 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
   const studentNav = [
     { label: 'Dashboard', path: '/student/dashboard', icon: LayoutDashboard },
+    { label: 'Resume & Verified Skills', path: '/student/resume', icon: FileText },
+    { label: 'Target Career Role Gap', path: '/student/target-role', icon: Target },
     { label: 'Skill Assessment', path: '/student/assessment', icon: Award },
     { label: 'Skill Gap Radar', path: '/student/skills', icon: Radar },
     { label: 'Live Video Meetings', path: '/meetings', icon: Video },
@@ -58,8 +63,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
     { label: 'Mentorship & Workshops', path: '/academician/mentorship', icon: CalendarCheck },
   ];
 
+  const institutionNav = [
+    { label: 'Institution Dashboard', path: '/institution/dashboard', icon: LayoutDashboard },
+    { label: 'Live Faculty Meetings', path: '/meetings', icon: Video },
+    { label: 'College Directory', path: '/college', icon: School },
+  ];
+
   const adminNav = [
     { label: 'Executive Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+    { label: 'Question Bank Moderation', path: '/admin/questions', icon: HelpCircle },
     { label: 'Live Video Conferences', path: '/meetings', icon: Video },
     { label: 'Student & Faculty Progress', path: '/admin/progress', icon: LineChart },
     { label: 'Analytics & Reports', path: '/admin/reports', icon: Award },
@@ -68,9 +80,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
 
   const getNavLinks = () => {
     switch (role) {
-      case 'student': return studentNav;
+      case 'student':
+      case 'jobseeker':
+        return studentNav;
       case 'industry': return industryNav;
       case 'academician': return academicianNav;
+      case 'institution': return institutionNav;
       case 'admin': return adminNav;
       default: return studentNav;
     }

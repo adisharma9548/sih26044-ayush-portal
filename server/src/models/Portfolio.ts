@@ -42,7 +42,7 @@ const PortfolioSchema: Schema = new Schema(
         issuer: { type: String, required: true },
         issueDate: { type: String, required: true },
         credentialUrl: { type: String },
-        verified: { type: Boolean, default: true },
+        verified: { type: Boolean, default: false },
         badgeIcon: { type: String, default: 'ShieldCheck' },
       },
     ],

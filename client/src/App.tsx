@@ -28,6 +28,8 @@ import { JobDetailPage } from './pages/student/JobDetailPage';
 import { MyApplicationsPage } from './pages/student/MyApplicationsPage';
 import { DigitalPortfolioPage } from './pages/student/DigitalPortfolioPage';
 import { CourseWorkspacePage } from './pages/student/CourseWorkspacePage';
+import { ResumeUploadReviewPage } from './pages/student/ResumeUploadReviewPage';
+import { TargetRoleGapPage } from './pages/student/TargetRoleGapPage';
 import { VerifyCertificatePage } from './pages/common/VerifyCertificatePage';
 
 // Industry Pages
@@ -44,11 +46,19 @@ import { InstitutionalStudentsPage } from './pages/academician/InstitutionalStud
 import { FacultyOpportunitiesPage } from './pages/academician/FacultyOpportunitiesPage';
 import { MentorshipWorkshopPage } from './pages/academician/MentorshipWorkshopPage';
 
+// Institution Pages
+import { InstitutionDashboardPage } from './pages/institution/InstitutionDashboardPage';
+
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { StudentFacultyProgressPage } from './pages/admin/StudentFacultyProgressPage';
 import { AnalyticsReportsPage } from './pages/admin/AnalyticsReportsPage';
 import { ManageUsersPage } from './pages/admin/ManageUsersPage';
+import { QuestionModerationPage } from './pages/admin/QuestionModerationPage';
+
+// College Discovery Pages
+import { CollegeSearchPage } from './pages/college/CollegeSearchPage';
+import { CollegeProfilePage } from './pages/college/CollegeProfilePage';
 
 const getDashboardPath = (role: string) => {
   switch (role) {
@@ -59,6 +69,8 @@ const getDashboardPath = (role: string) => {
       return '/industry/dashboard';
     case 'academician':
       return '/academician/dashboard';
+    case 'institution':
+      return '/institution/dashboard';
     case 'admin':
       return '/admin/dashboard';
     default:
@@ -98,6 +110,8 @@ export function App() {
         {/* Public Routes with Public Layout */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/college" element={<CollegeSearchPage />} />
+          <Route path="/college/:slug" element={<CollegeProfilePage />} />
           <Route path="/verify/:certId" element={<VerifyCertificatePage />} />
 
           {/* Guest / Public Only Routes (Auto-redirect if already signed in) */}
@@ -129,6 +143,8 @@ export function App() {
             <Route path="/student/jobs/:id" element={<JobDetailPage />} />
             <Route path="/student/applications" element={<MyApplicationsPage />} />
             <Route path="/student/portfolio" element={<DigitalPortfolioPage />} />
+            <Route path="/student/resume" element={<ResumeUploadReviewPage />} />
+            <Route path="/student/target-role" element={<TargetRoleGapPage />} />
           </Route>
 
           {/* Industry Role Routes */}
@@ -149,12 +165,18 @@ export function App() {
             <Route path="/academician/mentorship" element={<MentorshipWorkshopPage />} />
           </Route>
 
+          {/* Dedicated Institution Role Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['institution', 'admin', 'academician']} />}>
+            <Route path="/institution/dashboard" element={<InstitutionDashboardPage />} />
+          </Route>
+
           {/* Institution Admin Role Routes */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/progress" element={<StudentFacultyProgressPage />} />
             <Route path="/admin/reports" element={<AnalyticsReportsPage />} />
             <Route path="/admin/users" element={<ManageUsersPage />} />
+            <Route path="/admin/questions" element={<QuestionModerationPage />} />
           </Route>
         </Route>
 

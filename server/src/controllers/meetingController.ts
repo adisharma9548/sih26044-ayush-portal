@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import { Meeting } from '../models/Meeting';
@@ -21,7 +22,7 @@ export const scheduleMeeting = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Title, participant email, and date are required' } });
     }
 
-    const cleanRoomId = `nodalconnector-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const cleanRoomId = `nodalconnector-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     const meetingUrl = `/meetings?room=${cleanRoomId}`;
 
     const participantUser = await User.findOne({ email: participantEmail.toLowerCase().trim() });
@@ -250,6 +251,25 @@ export const endMeeting = async (req: AuthRequest, res: Response) => {
     if (appId && mongoose.isValidObjectId(appId)) {
       const app = await Application.findById(appId);
       if (app) {
+        // OWASP A01 / API1: Verify the caller is an authorized party (candidate, recruiter, or platform admin)
+        const isAuthorizedParty =
+          app.userId?.toString() === user._id.toString() ||
+          app.employerId?.toString() === user._id.toString() ||
+          (app.companyName && (
+            user.institution?.toLowerCase().trim() === app.companyName?.toLowerCase().trim() ||
+            user.name?.toLowerCase().trim() === app.companyName?.toLowerCase().trim()
+          )) ||
+          user.role === 'admin';
+
+        if (!isAuthorizedParty) {
+          return res.status(403).json({
+            error: {
+              code: 'FORBIDDEN',
+              message: 'Access denied. You are not authorized to conclude or modify this recruitment application.',
+            },
+          });
+        }
+
         app.status = 'interview_completed';
         await app.save();
         updatedApplication = app;

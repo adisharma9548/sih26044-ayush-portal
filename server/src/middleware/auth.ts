@@ -25,7 +25,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     const token = authHeader.split(' ')[1];
     const jwtSecret = getJwtSecret();
-    const decoded = jwt.verify(token, jwtSecret) as { id: string; role: string };
+    const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { id: string; role: string };
 
     const user = await User.findById(decoded.id);
     if (!user) {
@@ -70,7 +70,7 @@ export const optionalAuthenticate = async (req: AuthRequest, res: Response, next
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const jwtSecret = getJwtSecret();
-      const decoded = jwt.verify(token, jwtSecret) as { id: string; role: string };
+      const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as { id: string; role: string };
       const user = await User.findById(decoded.id);
       if (user) req.user = user;
     }
@@ -79,3 +79,7 @@ export const optionalAuthenticate = async (req: AuthRequest, res: Response, next
     next();
   }
 };
+
+export const auth = authenticate;
+export const optionalAuth = optionalAuthenticate;
+

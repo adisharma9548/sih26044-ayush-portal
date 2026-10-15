@@ -9,6 +9,7 @@ export interface IQuestion extends Document {
   explanation: string;
   weight: number;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  status: 'active' | 'retired' | 'under_review';
 }
 
 const QuestionSchema: Schema = new Schema(
@@ -21,6 +22,12 @@ const QuestionSchema: Schema = new Schema(
     explanation: { type: String, default: '' },
     weight: { type: Number, default: 20 },
     difficulty: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], default: 'Intermediate' },
+    status: {
+      type: String,
+      enum: ['active', 'retired', 'under_review'],
+      default: 'active',
+      index: true,
+    },
   },
   { timestamps: true }
 );
