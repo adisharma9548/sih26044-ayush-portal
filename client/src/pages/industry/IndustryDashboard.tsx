@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../services/api';
-import { Application, Internship } from '../../types';
+import { Application, Internship, CompanyAnalytics } from '../../types';
 import { StatCard } from '../../components/common/StatCard';
 import { Badge } from '../../components/common/Badge';
+import { ApplicationFunnelChart, TopSkillsDistribution } from '../../components/analytics/AnalyticsCharts';
 import {
   Briefcase,
   Users,
@@ -27,6 +28,7 @@ export const IndustryDashboard: React.FC = () => {
   const [applicants, setApplicants] = useState<Application[]>([]);
   const [internships, setInternships] = useState<Internship[]>([]);
   const [meetingsCount, setMeetingsCount] = useState(0);
+  const [analytics, setAnalytics] = useState<CompanyAnalytics | null>(null);
   const [showMouModal, setShowMouModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -34,14 +36,16 @@ export const IndustryDashboard: React.FC = () => {
     const fetchIndustryData = async () => {
       setLoading(true);
       const companyQuery = user?.institution || user?.name || '';
-      const [appRes, intRes, meetRes] = await Promise.allSettled([
+      const [appRes, intRes, meetRes, analyticsRes] = await Promise.allSettled([
         api.applications.getCompanyApplicants(companyQuery),
         api.internships.getAll(),
         api.meetings.getMyMeetings(),
+        api.analytics.getCompany(),
       ]);
       if (appRes.status === 'fulfilled') setApplicants(appRes.value.data || []);
       if (intRes.status === 'fulfilled') setInternships(intRes.value.data || []);
       if (meetRes.status === 'fulfilled') setMeetingsCount(meetRes.value.data?.length || 0);
+      if (analyticsRes.status === 'fulfilled') setAnalytics(analyticsRes.value.data);
       setLoading(false);
     };
     fetchIndustryData();
@@ -134,13 +138,43 @@ export const IndustryDashboard: React.FC = () => {
           color="purple"
         />
         <StatCard
-          title="Avg. Candidate Match"
-          value={avgMatch}
-          subtitle={applicants.length > 0 ? 'Competency benchmark match' : 'Awaiting applicants'}
+          title="Avg. Time to Hire"
+          value={analytics?.averageTimeToHire ? `${analytics.averageTimeToHire} Days` : 'N/A'}
+          subtitle={analytics?.averageTimeToHire ? 'Application to offer duration' : 'Pending completed hires'}
           icon={TrendingUp}
           color="amber"
         />
       </div>
+
+      {/* Recruitment Analytics Funnel & Top Skills */}
+      {analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Application Recruitment Funnel</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Real-time candidate progression through hiring stages</p>
+              </div>
+            </div>
+            <ApplicationFunnelChart
+              applied={analytics.applicationsByStatus?.APPLIED || 0}
+              reviewed={analytics.applicationsByStatus?.REVIEWED || 0}
+              shortlisted={analytics.applicationsByStatus?.SHORTLISTED || 0}
+              rejected={analytics.applicationsByStatus?.REJECTED || 0}
+            />
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Top In-Demand Skills</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Most sought competencies across your active job postings</p>
+              </div>
+            </div>
+            <TopSkillsDistribution skills={analytics.topInDemandSkills || []} />
+          </div>
+        </div>
+      )}
 
       {/* Recent Applicants Review Table */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-4">

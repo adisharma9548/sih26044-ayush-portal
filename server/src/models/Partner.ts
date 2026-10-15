@@ -20,7 +20,7 @@ const PartnerSchema: Schema = new Schema(
     mouValidUntil: { type: String, default: '2028-12-31' },
     activeInterns: { type: Number, default: 0 },
     totalHired: { type: Number, default: 0 },
-    status: { type: String, enum: ['Approved', 'Pending', 'Blocked'], default: 'Approved' },
+    status: { type: String, enum: ['Approved', 'Pending', 'Blocked'], default: 'Pending' },
   },
   { timestamps: true }
 );

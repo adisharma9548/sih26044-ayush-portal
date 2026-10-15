@@ -12,10 +12,12 @@ import {
   Menu,
   X,
   ExternalLink,
-  Shield
+  Shield,
+  Building2,
 } from 'lucide-react';
 import { Badge } from './Badge';
 import { UserAvatar } from './UserAvatar';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavbarProps {
   onToggleMobileMenu?: () => void;
@@ -67,13 +69,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
         return '/student/dashboard';
       case 'industry': return '/industry/dashboard';
       case 'academician': return '/academician/dashboard';
+      case 'institution': return '/institution/dashboard';
       case 'admin': return '/admin/dashboard';
       default: return '/';
     }
   };
 
   return (
-    <header className="bg-white border-b border-slate-200/90 sticky top-0 z-40 shadow-xs">
+    <header className="bg-white dark:bg-slate-900 border-b border-slate-200/90 dark:border-slate-800 sticky top-0 z-40 shadow-xs transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Brand / Logo */}
@@ -81,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
             {isAuthenticated && onToggleMobileMenu && (
               <button
                 onClick={onToggleMobileMenu}
-                className="lg:hidden p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
+                className="lg:hidden p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
                 aria-label="Toggle navigation menu"
               >
                 {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -94,27 +97,38 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, isMobileMenu
               </div>
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-lg text-slate-900 tracking-tight">NodalConnector</span>
-                  <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                  <span className="font-extrabold text-lg text-slate-900 dark:text-white tracking-tight">NodalConnector</span>
+                  <span className="text-[10px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.2 rounded">
                     NATIONAL
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-500 hidden sm:block">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
                   Multi-Disciplinary Skills & Placement Platform
                 </span>
               </div>
             </Link>
+
+            <nav className="hidden md:flex items-center gap-4 ml-6" aria-label="Main Navigation">
+              <Link
+                to="/college"
+                className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              >
+                <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                <span>Colleges & Universities</span>
+              </Link>
+            </nav>
           </div>
 
           {/* Right Navigation Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle compact={true} />
             {isAuthenticated ? (
               <>
                 {/* Notification Bell Dropdown */}
                 <div className="relative" ref={notifRef}>
                   <button
                     onClick={() => setShowNotifs(!showNotifs)}
-                    className="p-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-100 rounded-lg relative transition-colors"
+                    className="p-2 text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative transition-colors"
                     aria-label="Notifications"
                   >
                     <Bell className="w-5 h-5" />

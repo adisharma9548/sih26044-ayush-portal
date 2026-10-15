@@ -195,11 +195,11 @@ export const SkillAssessmentPage: React.FC = () => {
         document.exitFullscreen().catch(() => {});
       }
 
-      // Search roadmap.sh for lagging skill categories
-      const wrongCategories = questions
-        .filter((q) => selectedAnswers[q.id] !== q.correctIndex)
+      // Search roadmap.sh for lagging skill categories returned securely from the server evaluation
+      const wrongCategories: string[] = res.data?.wrongCategories || questions
+        .filter((q) => q.correctIndex !== undefined && selectedAnswers[q.id] !== q.correctIndex)
         .map((q) => q.category);
-      const uniqueLagging = Array.from(new Set(wrongCategories));
+      const uniqueLagging: string[] = Array.from(new Set(wrongCategories));
       if (uniqueLagging.length > 0) {
         try {
           const rmRes = await api.ai.getRoadmaps(uniqueLagging, degree);

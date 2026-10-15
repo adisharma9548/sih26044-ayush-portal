@@ -7,7 +7,16 @@ import {
   getProgressAnalytics,
   getReportsAnalytics,
   getStudents,
+  getAdminQuestions,
+  createAdminQuestion,
+  updateAdminQuestion,
+  deleteAdminQuestion,
+  provisionDemoAccount,
 } from '../controllers/adminController';
+import {
+  getAdminInstitutionClaims,
+  approveInstitutionClaim,
+} from '../controllers/institutionController';
 import { authenticate, authorize, optionalAuthenticate } from '../middleware/auth';
 
 const router = Router();
@@ -23,5 +32,18 @@ router.patch('/partners/:id/block', authenticate, authorize('admin'), blockPartn
 router.get('/progress', authenticate, authorize('admin'), getProgressAnalytics);
 router.get('/reports', authenticate, authorize('admin'), getReportsAnalytics);
 router.get('/students', authenticate, authorize('admin'), getStudents);
+
+// Question Bank Moderation
+router.get('/questions', authenticate, authorize('admin'), getAdminQuestions);
+router.post('/questions', authenticate, authorize('admin'), createAdminQuestion);
+router.patch('/questions/:id', authenticate, authorize('admin'), updateAdminQuestion);
+router.delete('/questions/:id', authenticate, authorize('admin'), deleteAdminQuestion);
+
+// Demo Account Provisioning
+router.post('/demo-accounts/provision', authenticate, authorize('admin'), provisionDemoAccount);
+
+// Institution Verification Claims
+router.get('/institution-claims', authenticate, authorize('admin'), getAdminInstitutionClaims);
+router.post('/institution-claims/:id/approve', authenticate, authorize('admin'), approveInstitutionClaim);
 
 export default router;

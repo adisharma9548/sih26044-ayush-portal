@@ -7,6 +7,8 @@ interface NotificationState {
   unreadCount: number;
   isLoading: boolean;
   fetchNotifications: () => Promise<void>;
+  fetchUnreadCount: () => Promise<void>;
+  addNotification: (notif: Notification) => void;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   clearAll: () => Promise<void>;
@@ -32,12 +34,38 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  fetchUnreadCount: async () => {
+    try {
+      const res = await api.notifications.getUnreadCount();
+      if (typeof res.data?.count === 'number') {
+        set({ unreadCount: res.data.count });
+      }
+    } catch {
+      // Fallback silently
+    }
+  },
+
+  addNotification: (notif: Notification) => {
+    const formatted: Notification = {
+      ...notif,
+      id: (notif.id || (notif as any)._id)?.toString(),
+    };
+    const current = get().notifications;
+    const exists = current.some((n) => n.id === formatted.id);
+    if (!exists) {
+      set({
+        notifications: [formatted, ...current],
+        unreadCount: get().unreadCount + (formatted.read ? 0 : 1),
+      });
+    }
+  },
+
   markAsRead: async (id: string) => {
     await api.notifications.markAsRead(id);
     const updated = get().notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
     set({
       notifications: updated,
-      unreadCount: updated.filter((n) => !n.read).length
+      unreadCount: updated.filter((n) => !n.read).length,
     });
   },
 
@@ -46,7 +74,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const updated = get().notifications.map((n) => ({ ...n, read: true }));
     set({
       notifications: updated,
-      unreadCount: 0
+      unreadCount: 0,
     });
   },
 
@@ -54,7 +82,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     await api.notifications.clearAll();
     set({
       notifications: [],
-      unreadCount: 0
+      unreadCount: 0,
     });
-  }
+  },
 }));

@@ -1,63 +1,56 @@
-# NodalConnector — Demo User Credentials
+# NodalConnector — Demo Access & Evaluation Guide
 
-This document provides verified login credentials for evaluating and demonstrating the **NodalConnector** platform across all supported user roles: **Student**, **Industry**, **Academia**, and **Administrator**.
+This document describes the **secure demo evaluation architecture** for the **NodalConnector** platform across all supported user roles: **Student**, **Industry**, **Academia**, and **Institution**.
 
-All user IDs and accounts are persistently linked with live MongoDB Atlas data (including course enrollments, certificates, industry internship postings, hackathons, and research projects).
-
----
-
-## 🚀 Quick Evaluation Accounts (Recommended)
-
-These primary demo accounts are preloaded with active modules, certificates, internships, and dynamic AI features.
-
-| Role | Name / Identifier | Email Address | Password | Details / Assigned Entity |
-| :--- | :--- | :--- | :--- | :--- |
-| **Student** | Demo Student (STU-DEMO-2026-001) | `student.demo@nodalconnector.in` | `DemoPass@2026!` | National Institute of Technology — Enrolled in active learning modules, hands-on labs, and holds verifiable credentials |
-| **Industry Partner** | Demo Industry (IND-DEMO-2026-001) | `industry.demo@nodalconnector.in` | `DemoPass@2026!` | Nodal Power & Automation Ltd — Can post courses, internships, hackathons, AI module drafts, and view student completions |
-| **Academia / Faculty** | Demo Academia (ACA-DEMO-2026-001) | `academia.demo@nodalconnector.in` | `DemoPass@2026!` | Delhi Technological University — Can browse industry curricula, generate AI bridge courses, and manage university talent |
-| **Platform Admin** | System Administrator | `admin@skillbridge.gov.in` | `admin` | SkillBridge National Directorate — Full administrative control, system auditing, and moderation |
+> [!SECURITY NOTE]
+> In accordance with strict production security standards, all plaintext credentials have been completely purged from this repository. Demo accounts are dynamically provisioned through the real registration engine, isolated with `isDemo: true`, and strictly protected via server-side access control.
 
 ---
 
-## 🎓 Institutional Accounts (Delhi Technological University - DTU)
+## 🔒 Secure Demo Access Architecture
 
-These accounts model university-wide collaborative learning, institutional research, and faculty mentorship.
+Demo accounts are isolated from production search, candidate listings, and public analytics via the global `REAL_USER_FILTER`:
+- `accountType: 'demo'`
+- `isDemo: true`
 
-### Academia Faculty / Professors
-| Name | Role | Email Address | Password | Department / University |
-| :--- | :--- | :--- | :--- | :--- |
-| **Prof. Rajesh Gupta** | Academician | `prof.gupta@dtu.edu.in` | `DemoPass@2026!` | Computer Science & Engineering, DTU |
-| **Dr. Sunita Rao** | Academician | `dr.sunita@dtu.edu.in` | `DemoPass@2026!` | Electronics & Communication, DTU |
+### 1. Environment Configuration
+To enable demo account evaluation on your local or staging environment, configure the following variables in `server/.env`:
 
-### DTU Students & Research Scholars
-| Name | Role | Email Address | Password | Profile Focus |
-| :--- | :--- | :--- | :--- | :--- |
-| **Aarav Sharma** | Student | `aarav.sharma@dtu.edu.in` | `DemoPass@2026!` | Embedded Systems & IoT |
-| **Diya Patel** | Student | `diya.patel@dtu.edu.in` | `DemoPass@2026!` | Artificial Intelligence & Machine Learning |
-| **Rohan Verma** | Student | `rohan.verma@dtu.edu.in` | `DemoPass@2026!` | Full-Stack Development & Cloud Native |
-| **Ananya Sen** | Student | `ananya.sen@dtu.edu.in` | `DemoPass@2026!` | Data Engineering & Analytics |
-| **Kabir Mehta** | Student | `kabir.mehta@dtu.edu.in` | `DemoPass@2026!` | Cybersecurity & Cryptography |
+```env
+# Secret password used when provisioning demo evaluation accounts
+DEMO_ACCOUNT_PASSWORD=your_secure_random_demo_password
+
+# Server-side access code required to authenticate into any demo account
+DEMO_ACCESS_CODE=your_secret_demo_access_code
+```
+
+### 2. Automated Demo Provisioning
+Administrators or platform owners can provision standard evaluation accounts using the secure script:
+
+```bash
+cd server
+npm run seed:demo
+# Or via protected Admin API:
+# POST /api/admin/demo-accounts/provision (Admin JWT required)
+```
+
+The provisioning script registers demo accounts across all platform stakeholder archetypes:
+* **Student Demo**: `student.demo@nodalconnector.in` (Profile preloaded with skill diagnostic attempts, verified resume, and roadmap)
+* **Industry Demo**: `industry.demo@nodalconnector.in` (Preloaded with active internships and applicant listings)
+* **Academia Demo**: `academia.demo@nodalconnector.in` (Preloaded with faculty programs and student mentorship requests)
+* **Institution Admin Demo**: `institution.demo@nodalconnector.in` (Scoped to institutional cohort analytics and placement metrics)
+
+### 3. Authenticating into Demo Accounts
+When logging into any account with `isDemo: true`:
+1. Submit the login request to `POST /api/auth/login`.
+2. Provide the `x-demo-access-code` header (matching `DEMO_ACCESS_CODE` in `.env`).
+3. If the header is missing or does not match, the server rejects the login attempt with `403 FORBIDDEN` to prevent unauthorized public access.
 
 ---
 
-## 💼 Direct Jobseeker / Candidate Accounts
+## 🛡️ Live Environment Audit Findings
 
-Direct applicant profiles for placement and internship tracks:
-
-| Name | Role | Email Address | Password | Institution |
-| :--- | :--- | :--- | :--- | :--- |
-| **Aditya** | Jobseeker / Candidate | `adisharma9548@gmail.com` | `12345678` | Raj Kumar Goel Institute of Technology |
-| **Arun** | Jobseeker / Candidate | `alok6262a@gmail.com` | `12345678` | Indian Institute of Technology Bombay |
-
----
-
-## 🔑 How to Log In
-
-1. Launch the web application (e.g. `http://localhost:5173` or your production domain).
-2. Click **Login** / **Sign In** on the navigation bar.
-3. Select your desired role tab (or select the appropriate role during authentication):
-   - For **Student**: Choose Student tab & use `student.demo@nodalconnector.in` with `DemoPass@2026!`
-   - For **Industry**: Choose Industry tab & use `industry.demo@nodalconnector.in` with `DemoPass@2026!`
-   - For **Academia**: Choose Academia tab & use `academia.demo@nodalconnector.in` with `DemoPass@2026!`
-   - For **Admin**: Choose Admin / Directorate login & use `admin@skillbridge.gov.in` with `admin`
-4. All databases, certificates, enrolled tracks, and industry challenges are persisted in MongoDB Atlas and will load automatically.
+During security verification, previous commits containing plaintext credentials were identified:
+* All credentials in this file have been purged.
+* Personal accounts previously listed in documentation must have their passwords rotated immediately if reused on external services.
+* Repository owners should perform a git history rewrite (via `git-filter-repo` or BFG) to permanently purge legacy commit history.

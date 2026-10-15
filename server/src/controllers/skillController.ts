@@ -187,13 +187,12 @@ export const getQuestions = async (req: Request, res: Response) => {
       ).catch(() => {});
     }
 
+    // OWASP API3: Do NOT leak correctIndex or explanation to the client browser prior to assessment
     const formatted = aiQuestions.map((q) => ({
       id: q.id,
       category: q.category,
       question: q.question,
       options: q.options,
-      correctIndex: q.correctIndex,
-      explanation: q.explanation,
       weight: Math.round(100 / aiQuestions.length),
     }));
     return res.json({ data: formatted });
@@ -235,9 +234,9 @@ export const submitAssessment = async (req: Request, res: Response) => {
 
         const studentAns = answers ? answers[q.id] : undefined;
         const verifiedRecord = dbQuestionMap.get(q.question);
-        // Server authority: Always use verified server correctIndex if available
-        const actualCorrect = verifiedRecord ? verifiedRecord.correctIndex : q.correctIndex;
-        if (studentAns !== undefined && studentAns === actualCorrect) {
+        // Server authority: Strictly grade against verified server record in database
+        const actualCorrect = verifiedRecord ? verifiedRecord.correctIndex : null;
+        if (studentAns !== undefined && actualCorrect !== null && studentAns === actualCorrect) {
           correctCount++;
           stat.correct++;
         }
@@ -436,10 +435,15 @@ export const submitAssessment = async (req: Request, res: Response) => {
       evaluatedAt: new Date(),
     });
 
+    const wrongCategories = Array.from(categoryScores.entries())
+      .filter(([_, stat]) => stat.correct < stat.total)
+      .map(([cat]) => cat);
+
     res.json({
       data: {
         score: calculatedScore,
         profile,
+        wrongCategories,
       },
     });
   } catch (err: any) {

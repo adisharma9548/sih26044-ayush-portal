@@ -1,13 +1,28 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export type UserRole = 'student' | 'jobseeker' | 'industry' | 'academician' | 'admin';
+export type UserRole = 'student' | 'jobseeker' | 'industry' | 'academician' | 'admin' | 'institution';
+
+export interface ILocationStructured {
+  country: string;
+  state: string;
+  district: string;
+  city: string;
+  village: string;
+  rawInput: string;
+  source: 'user_entered' | 'ai_extracted' | 'ai_suggested_confirmed';
+}
 
 export interface IUser extends Document {
   name: string;
   email: string;
   password?: string;
   role: UserRole;
+  accountType: 'real' | 'demo';
+  isDemo: boolean;
+  resumeId?: mongoose.Types.ObjectId | string;
+  locationStructured?: ILocationStructured;
+  collegeId?: mongoose.Types.ObjectId | string;
   profilePicture?: string;
   institution?: string;
   industry?: string;
@@ -43,6 +58,8 @@ export interface IUser extends Document {
   };
   isEmailVerified: boolean;
   verified: boolean;
+  twoFactorEnabled?: boolean;
+  institutionId?: mongoose.Types.ObjectId | string;
   requiresPasswordReset?: boolean;
   passwordChangedAt?: Date;
   academicContextHash?: string;
@@ -61,9 +78,41 @@ const UserSchema: Schema = new Schema(
     role: {
       type: String,
       required: true,
-      enum: ['student', 'jobseeker', 'industry', 'academician', 'admin'],
+      enum: ['student', 'jobseeker', 'industry', 'academician', 'admin', 'institution'],
       default: 'student',
       index: true,
+    },
+    accountType: {
+      type: String,
+      enum: ['real', 'demo'],
+      default: 'real',
+      index: true,
+    },
+    isDemo: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    resumeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Resume',
+    },
+    locationStructured: {
+      country: { type: String, default: 'India' },
+      state: { type: String, default: '' },
+      district: { type: String, default: '' },
+      city: { type: String, default: '' },
+      village: { type: String, default: '' },
+      rawInput: { type: String, default: '' },
+      source: {
+        type: String,
+        enum: ['user_entered', 'ai_extracted', 'ai_suggested_confirmed'],
+        default: 'user_entered',
+      },
+    },
+    collegeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'College',
     },
     profilePicture: { type: String, default: '' },
     institution: { type: String, default: '' },
@@ -90,6 +139,8 @@ const UserSchema: Schema = new Schema(
     },
     isEmailVerified: { type: Boolean, default: false },
     verified: { type: Boolean, default: true },
+    twoFactorEnabled: { type: Boolean, default: false },
+    institutionId: { type: Schema.Types.ObjectId, ref: 'College' },
     requiresPasswordReset: { type: Boolean, default: false },
     passwordChangedAt: { type: Date },
     academicContextHash: { type: String, default: '' },
@@ -100,6 +151,7 @@ const UserSchema: Schema = new Schema(
 
 UserSchema.index({ role: 1, department: 1 });
 UserSchema.index({ role: 1, institution: 1 });
+UserSchema.index({ accountType: 1, role: 1 });
 
 // Password hashing hook
 UserSchema.pre<IUser>('save', async function (next) {
@@ -130,5 +182,7 @@ UserSchema.methods.toSafeObject = function () {
   delete obj.password;
   return obj;
 };
+
+export const REAL_USER_FILTER = { isDemo: { $ne: true }, accountType: { $ne: 'demo' } };
 
 export const User = mongoose.model<IUser>('User', UserSchema);

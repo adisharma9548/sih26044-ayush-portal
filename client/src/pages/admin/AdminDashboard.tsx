@@ -18,30 +18,50 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { MouReviewModal } from '../../components/common/MouReviewModal';
+import { AdminAnalytics, InstitutionClaim } from '../../types';
+import { UserGrowthBarChart } from '../../components/analytics/AnalyticsCharts';
+import { Globe, Search, CheckCircle2 as CheckIcon, Clock } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [partners, setPartners] = useState<any[]>([]);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [claims, setClaims] = useState<InstitutionClaim[]>([]);
   const [selectedProposal, setSelectedProposal] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAdminData = async () => {
     setLoading(true);
     try {
-      const [sRes, pRes, mRes] = await Promise.all([
+      const [sRes, pRes, mRes, aRes, cRes] = await Promise.allSettled([
         api.admin.getDashboardStats(),
         api.admin.getPartners(),
         api.mous.getProposals(),
+        api.analytics.getAdmin(),
+        api.institution.getAdminClaims(),
       ]);
-      setStats(sRes.data);
-      setPartners(pRes.data || []);
-      setProposals(mRes.data || []);
+      if (sRes.status === 'fulfilled') setStats(sRes.value.data);
+      if (pRes.status === 'fulfilled') setPartners(pRes.value.data || []);
+      if (mRes.status === 'fulfilled') setProposals(mRes.value.data || []);
+      if (aRes.status === 'fulfilled') setAnalytics(aRes.value.data);
+      if (cRes.status === 'fulfilled') setClaims(cRes.value.data || []);
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);
     }
     setLoading(false);
+  };
+
+  const handleApproveClaim = async (claimId: string) => {
+    try {
+      await api.institution.approveClaim(claimId);
+      setClaims((prev) => prev.map((c) => (c.id === claimId ? { ...c, status: 'APPROVED' } : c)));
+      // Refresh admin data to reflect new verified count
+      fetchAdminData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to approve claim');
+    }
   };
 
   useEffect(() => {
@@ -114,6 +134,133 @@ export const AdminDashboard: React.FC = () => {
           color="amber"
         />
       </div>
+
+      {/* User Growth & Institution Discovery Analytics */}
+      {analytics && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-7 shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">National Platform User Growth</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Real cohort growth calculated across student, company, and faculty registrations</p>
+              </div>
+            </div>
+            <UserGrowthBarChart growth={analytics.userGrowth || []} />
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs">
+              <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-purple-600" aria-hidden="true" />
+                <span>Institution Discovery Stats</span>
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">Autonomous college domain verification status</p>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <span className="text-slate-600 font-medium">Institutions Discovered</span>
+                  <span className="font-bold text-slate-900 text-sm">{analytics.institutionDiscoveryStats?.discovered || 0}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                  <span className="text-emerald-700 font-medium">Verified Institutions</span>
+                  <span className="font-bold text-emerald-800 text-sm">{analytics.institutionDiscoveryStats?.verified || 0}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs p-3 rounded-xl bg-purple-50 border border-purple-100">
+                  <span className="text-purple-700 font-medium">Claim Inquiries Searched</span>
+                  <span className="font-bold text-purple-800 text-sm">{analytics.institutionDiscoveryStats?.searched || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            {analytics.topSearchQueries && analytics.topSearchQueries.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs">
+                <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-slate-500" aria-hidden="true" />
+                  <span>Top Search Queries</span>
+                </h3>
+                <p className="text-xs text-slate-500 mb-3">High-frequency discovery terms</p>
+                <div className="space-y-1.5">
+                  {analytics.topSearchQueries.map((q, idx) => (
+                    <div key={idx} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0">
+                      <span className="text-slate-700 font-medium">{q.query}</span>
+                      <span className="text-slate-400 font-mono">{q.count} queries</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Institution Onboarding Claims Verification Table */}
+      {claims.length > 0 && (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+                <span>Pending Institution Claims & Verification Requests</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review representative institutional credentials and verify official college identity
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                  <th className="pb-3 px-2">College Name</th>
+                  <th className="pb-3 px-2">Representative</th>
+                  <th className="pb-3 px-2">Official Email</th>
+                  <th className="pb-3 px-2">Verification Code</th>
+                  <th className="pb-3 px-2">Status</th>
+                  <th className="pb-3 px-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {claims.map((claim) => (
+                  <tr key={claim.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-2 font-bold text-slate-900">
+                      <Link to={`/college/${claim.collegeSlug}`} className="hover:text-purple-700 hover:underline">
+                        {claim.collegeName}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-2 text-slate-700">{claim.representativeName}</td>
+                    <td className="py-3 px-2 font-mono text-slate-600">{claim.email}</td>
+                    <td className="py-3 px-2 font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded inline-block my-2">
+                      {claim.verificationCode}
+                    </td>
+                    <td className="py-3 px-2">
+                      {claim.status === 'APPROVED' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          VERIFIED
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                          PENDING
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      {claim.status === 'PENDING' && (
+                        <button
+                          type="button"
+                          onClick={() => handleApproveClaim(claim.id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors shadow-xs"
+                        >
+                          Approve Claim
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Industry MoUs Snapshot Table */}
       <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-xs space-y-4">
