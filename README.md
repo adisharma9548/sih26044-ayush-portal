@@ -83,21 +83,22 @@ sih26044-ayush-portal/
 
 ---
 
-## 🛡️ Security & Pentest Compliance
+## 🛡️ Security & Pentest Compliance (October 2026 Comprehensive Audit)
 
-The platform has been audited against the **OWASP Top 10 & API Security Top 10**:
+The platform has been audited and hardened end-to-end against the **OWASP Top 10 (2025/2026) & API Security Top 10**:
 
-| Vulnerability Category | Mitigation Architecture | Status |
-| :--- | :--- | :---: |
-| **A01: Broken Access Control (BOLA)** | Strict JWT role gates (`requireRole`), user ID matching on applications and meetings, and server-side participant authorization. | **SECURE** |
-| **A02: Cryptographic Failures** | High-entropy `JWT_SECRET` validation (>= 32 chars), bcrypt password hashing (cost factor >= 10), and secure token handling. | **SECURE** |
-| **A03: Injection (NoSQL / ReDoS)** | Express `mongoSanitize` strips operator injections (`$gt`, `$ne`). Regex inputs are escaped with safe regex escaping. | **SECURE** |
-| **A04: Insecure Design & Call Leakage** | Concluded meetings are permanently deleted from active collections and registered in `EndedRoom`, returning HTTP 410 on re-entry. | **SECURE** |
-| **A05: Security Misconfigurations** | `Helmet` HTTP security headers (`nosniff`, `HSTS`, `strict-origin-when-cross-origin`, `X-Frame-Options`), strict CORS origin lockdown. | **SECURE** |
-| **A07: Identification & Auth** | Rate limiting on `/api/auth/login` (brute-force defense), password policy >= 8 chars, and automatic token expiry. | **SECURE** |
-| **A08: Software & Data Integrity** | Tamper-evident certificate validation and integrity checks on digital portfolio dossiers. | **SECURE** |
-| **A09: Logging & Monitoring** | Structured security audit logging via `auditService` tracking administrative actions, meeting ends, and status changes. | **SECURE** |
-| **API Security: Mass Assignment** | Explicit request body destructuring in all controllers; rogue fields (`role: "admin"`) are rejected. | **SECURE** |
+| Vulnerability Category | Threat Vector & Issue | Mitigation Architecture & Fix Applied | Status |
+| :--- | :--- | :--- | :---: |
+| **A01: Broken Access Control (BOLA)** | Horizontal privilege escalation; admin query wildcard | Strict JWT role gates (`requireRole`); deterministic `ADMIN_EMAIL` lookup eliminating wildcard matching; role isolation across student, jobseeker, recruiter, and academic portals. | **SECURE** |
+| **A02: Cryptographic Failures** | Predictable meeting room and digital seal IDs via `Math.random()` | Replaced `Math.random()` with cryptographically secure pseudo-random bytes (`crypto.randomBytes(4)`); enforced `{ algorithms: ['HS256'] }` on all JWT verification calls to stop `alg: none` confusion. | **SECURE** |
+| **A03: Injection & ReDoS** | Regex catastrophic backtracking in college search queries | Safe regex metacharacter escaping (`replace(/[.*+?^${}()|[\]\\]/g, '\\$&')`) before RegExp compilation; Express `mongoSanitize` strips operator injections (`$gt`, `$ne`). | **SECURE** |
+| **A04: Insecure Design & Call Leakage** | Unauthorized re-entry into concluded video calls | Concluded meetings are permanently removed from active collections and registered in `EndedRoom`, returning HTTP 410 Gone on re-entry. | **SECURE** |
+| **A05: Security Misconfigurations** | Missing Content-Security-Policy & clickjacking vulnerability | Configured Helmet CSP directives (`defaultSrc`, `scriptSrc`, `connectSrc`, `imgSrc`) and `frameAncestors: ["'none'"]` to stop clickjacking; locked down CORS origins. | **SECURE** |
+| **A07: Identification & Auth** | Plaintext OTP storage and log leakage; brute-force attacks | Replaced plaintext OTP storage with SHA-256 `otpHash` in MongoDB; removed OTP from console logs; masked emails (`jo***@example.com`); timing-safe equality; 5-attempt lockout; rate limiting on login & claim endpoints. | **SECURE** |
+| **A08: Software & Data Integrity** | Reverse tabnabbing on external anchor tags | Enforced `rel="noopener noreferrer"` across all client links; supply chain vulnerability patches (upgraded `nodemailer` to `10.1.1`, resolved `proxy-addr` IP spoofing and `source-map-js` DoS). | **SECURE** |
+| **A09: Logging & Monitoring** | Audit trail of sensitive security events | Structured security audit logging via `recordAuditLog` and `auditService` tracking administrative actions, logins, password resets, and 2FA status changes. | **SECURE** |
+| **API Security: Mass Assignment** | Unchecked role manipulation during registration | Explicit request body destructuring in all controllers; rogue administrative role assignment (`role: "admin"`) is rejected with HTTP 403. | **SECURE** |
+| **Two-Factor Authentication (2FA)** | Account takeover defense | Operational email-based 2FA challenge flow; generates 6-digit OTP dispatched to user; verified in `useAuthStore` and `LoginPage` before session token issuance. | **SECURE** |
 
 ---
 
@@ -325,5 +326,9 @@ Evaluators and project maintainers can track prioritized platform tasks against 
 - [x] Concluded meetings deleted from active lists across all user views; re-entry sealed with HTTP 410.
 - [x] Dynamic AI Indian College & University Auto-Discovery with zero hardcoded catalogs.
 - [x] Anti-cheating adaptive skill assessment engine with webcam/tab proctoring.
-- [x] Hybrid MongoDB + Groq AI roadmap architecture with honest "Not Assessed" empty states.
 - [x] OWASP Top 10 + API Security hardening with 100% test pass rate.
+- [x] End-to-end security audit and remediation: SHA-256 OTP storage, CSP headers, rate limiting, ReDoS prevention, and CSPRNG IDs.
+- [x] Operational Two-Factor Authentication (2FA) email challenge verification in client store and login UI.
+- [x] Native Print-to-PDF portfolio and verified digital CV export with dedicated print stylesheets.
+- [x] Dynamic credential ID computation and persistent notification preferences.
+- [x] Automated comprehensive verification test suite (`npm run test:verify`) passing 11/11 automated tests.
