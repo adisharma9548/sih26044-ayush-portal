@@ -4,6 +4,7 @@ import {
   Job,
   SkillProfile,
   LearningProgram,
+  LearningPath,
   Application,
   Notification,
   Workshop,
@@ -20,6 +21,16 @@ import {
   AcademicValidationResult,
   InstitutionalStudent,
   StudentDetailedProfileResponse,
+  College,
+  CollegeSearchResult,
+  InstitutionClaim,
+  StudentAnalytics,
+  CompanyAnalytics,
+  AdminAnalytics,
+  IResume,
+  ICareerRole,
+  IAdminQuestion,
+  IInstitutionAnalytics,
 } from '../types';
 
 const resolveApiBase = (): string => {
@@ -59,11 +70,12 @@ async function apiRequest<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData;
     const res = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
       signal: controller.signal,
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options?.headers,
       },
@@ -89,7 +101,12 @@ async function apiRequest<T>(
 }
 
 export const authService = {
-  login: async (email: string, password?: string, role: UserRole = 'student'): Promise<{ data: { user: User; token: string } }> => {
+  login: async (
+    email: string,
+    password?: string,
+    role: UserRole = 'student',
+    otp?: string
+  ): Promise<{ data: { user?: User; token?: string; requires2FA?: boolean; message?: string } }> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     try {
@@ -97,7 +114,7 @@ export const authService = {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ email, password, role, ...(otp ? { otp } : {}) }),
       });
       clearTimeout(timeoutId);
       const data = await res.json().catch(() => ({}));
@@ -348,7 +365,7 @@ export const skillService = {
     answers: Record<number, number>,
     proctoring?: any,
     questions?: any[]
-  ): Promise<{ data: { score: number; profile: SkillProfile } }> => {
+  ): Promise<{ data: { score: number; profile: SkillProfile; wrongCategories?: string[] } }> => {
     return apiRequest('/skills/assessment/submit', {
       method: 'POST',
       body: JSON.stringify({ answers, proctoring, questions }),
@@ -369,6 +386,24 @@ export const skillService = {
 };
 
 export const learningService = {
+  getCurrentPath: async (): Promise<{ data: LearningPath | null }> => {
+    return apiRequest('/learning/path/current');
+  },
+
+  generatePath: async (params?: { targetRole?: string; targetSkill?: string; customGoal?: string }): Promise<{ data: LearningPath }> => {
+    return apiRequest('/learning/path/generate', {
+      method: 'POST',
+      body: JSON.stringify(params || {}),
+    });
+  },
+
+  updateMilestoneStatus: async (milestoneId: string, status: 'locked' | 'current' | 'completed'): Promise<{ data: LearningPath }> => {
+    return apiRequest(`/learning/path/milestone/${milestoneId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  },
+
   getAll: async (): Promise<{ data: LearningProgram[] }> => {
     return apiRequest('/learning/programs');
   },
@@ -442,8 +477,17 @@ export const applicationService = {
 };
 
 export const notificationService = {
-  getAll: async (): Promise<{ data: Notification[] }> => {
-    return apiRequest('/notifications');
+  getAll: async (params?: { limit?: number; skip?: number; unread?: boolean }): Promise<{ data: Notification[] }> => {
+    const sp = new URLSearchParams();
+    if (params?.limit) sp.append('limit', params.limit.toString());
+    if (params?.skip) sp.append('skip', params.skip.toString());
+    if (params?.unread !== undefined) sp.append('unread', params.unread.toString());
+    const qs = sp.toString() ? `?${sp.toString()}` : '';
+    return apiRequest(`/notifications${qs}`);
+  },
+
+  getUnreadCount: async (): Promise<{ data: { count: number } }> => {
+    return apiRequest('/notifications/unread-count');
   },
 
   markAsRead: async (id: string): Promise<{ data: boolean }> => {
@@ -899,6 +943,178 @@ export const academicService = {
   },
 };
 
+export const collegeService = {
+  search: async (query: string, limit: number = 10): Promise<{ data: CollegeSearchResult[] }> => {
+    return apiRequest('/college/search', {
+      method: 'POST',
+      body: JSON.stringify({ query, limit }),
+    });
+  },
+
+  discover: async (domain: string): Promise<{ data: { officialDomain: string; slug: string; confidence: number } }> => {
+    return apiRequest('/college/discover', {
+      method: 'POST',
+      body: JSON.stringify({ domain }),
+    });
+  },
+
+  getBySlug: async (slug: string): Promise<{ data: College }> => {
+    return apiRequest(`/college/${slug}`);
+  },
+
+  refresh: async (slug: string): Promise<{ data: College }> => {
+    return apiRequest(`/college/${slug}/refresh`, {
+      method: 'POST',
+    });
+  },
+
+  claim: async (slug: string, verificationMethod: string = 'official_email'): Promise<{ data: any }> => {
+    return apiRequest(`/college/${slug}/claim`, {
+      method: 'POST',
+      body: JSON.stringify({ verificationMethod }),
+    });
+  },
+};
+
+export const institutionClaimService = {
+  getStatus: async (slug: string): Promise<{ data: { slug: string; name: string; verificationStatus: 'UNCLAIMED' | 'VERIFIED' } }> => {
+    return apiRequest(`/institution/${slug}/status`);
+  },
+
+  submitClaim: async (
+    slug: string,
+    payload: { representativeName: string; email: string; verificationCode: string }
+  ): Promise<{ data: { requestId: string; adminReviewUrl: string; status: string; message: string } }> => {
+    return apiRequest(`/institution/${slug}/claim-request`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getAdminClaims: async (): Promise<{ data: InstitutionClaim[] }> => {
+    return apiRequest('/admin/institution-claims');
+  },
+
+  approveClaim: async (id: string): Promise<{ data: any }> => {
+    return apiRequest(`/admin/institution-claims/${id}/approve`, {
+      method: 'POST',
+    });
+  },
+};
+
+export const analyticsService = {
+  getStudent: async (): Promise<{ data: StudentAnalytics }> => {
+    return apiRequest('/analytics/student');
+  },
+
+  getCompany: async (): Promise<{ data: CompanyAnalytics }> => {
+    return apiRequest('/analytics/company');
+  },
+
+  getAdmin: async (): Promise<{ data: AdminAnalytics }> => {
+    return apiRequest('/analytics/admin');
+  },
+};
+
+export const twoFactorService = {
+  requestOtp: async (): Promise<{ data: { success: boolean; message: string } }> => {
+    return apiRequest('/auth/2fa/email/request', {
+      method: 'POST',
+    });
+  },
+
+  verifyOtp: async (otp: string): Promise<{ data: { success: boolean; twoFactorEnabled: boolean; message: string } }> => {
+    return apiRequest('/auth/2fa/email/verify', {
+      method: 'POST',
+      body: JSON.stringify({ otp }),
+    });
+  },
+};
+
+export const resumeService = {
+  upload: async (formData: FormData): Promise<{ data: IResume }> => {
+    return apiRequest('/resumes', {
+      method: 'POST',
+      body: formData,
+    }, 60000); // 60s timeout for file upload + AI extraction
+  },
+
+  getMyResume: async (): Promise<{ data: IResume }> => {
+    return apiRequest('/resumes/me');
+  },
+
+  getById: async (id: string): Promise<{ data: IResume }> => {
+    return apiRequest(`/resumes/${id}`);
+  },
+
+  confirm: async (id: string, confirmedData: any): Promise<{ data: { resume: IResume; profile: any; user: any } }> => {
+    return apiRequest(`/resumes/${id}/confirm`, {
+      method: 'PATCH',
+      body: JSON.stringify(confirmedData),
+    });
+  },
+
+  download: async (id: string): Promise<{ data: { downloadUrl: string; filename: string; expiresInSeconds: number } }> => {
+    return apiRequest(`/resumes/${id}/download`);
+  },
+};
+
+export const careerRoleService = {
+  getAll: async (category?: string, search?: string): Promise<{ data: ICareerRole[]; userContext?: any }> => {
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    if (search) params.append('search', search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest(`/career-roles${qs}`);
+  },
+
+  getById: async (id: string): Promise<{ data: ICareerRole }> => {
+    return apiRequest(`/career-roles/${id}`);
+  },
+
+  analyzeGap: async (roleId?: string, roleSlug?: string, opportunityId?: string): Promise<{ data: { role: ICareerRole; analysis: any; preferredAnalysis?: any; resumeMetadata?: any } }> => {
+    return apiRequest('/career-roles/gap-analysis', {
+      method: 'POST',
+      body: JSON.stringify({ roleId, roleSlug, opportunityId }),
+    });
+  },
+};
+
+export const institutionDashboardService = {
+  getAnalytics: async (): Promise<{ data: IInstitutionAnalytics }> => {
+    return apiRequest('/institution/dashboard/analytics');
+  },
+
+  getStudents: async (params?: any): Promise<{ data: any[]; pagination?: any }> => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : '';
+    return apiRequest(`/institution/dashboard/students${qs}`);
+  },
+
+  updateProfile: async (data: any): Promise<{ data: any }> => {
+    return apiRequest('/institution/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+export const locationService = {
+  getStates: async (): Promise<{ data: string[] }> => {
+    return apiRequest('/locations/states');
+  },
+
+  getDistricts: async (state: string): Promise<{ data: string[] }> => {
+    return apiRequest(`/locations/districts?state=${encodeURIComponent(state)}`);
+  },
+
+  normalize: async (rawLocation: string): Promise<{ data: { state?: string; district?: string; city?: string } }> => {
+    return apiRequest('/locations/normalize', {
+      method: 'POST',
+      body: JSON.stringify({ rawLocation }),
+    });
+  },
+};
+
 export const api = {
   auth: authService,
   users: userService,
@@ -914,12 +1130,61 @@ export const api = {
     getStudents: async (): Promise<{ data: any[] }> => {
       return apiRequest('/admin/students');
     },
+    getQuestions: async (params?: any): Promise<{ data: IAdminQuestion[]; pagination?: any }> => {
+      const qs = params ? `?${new URLSearchParams(params).toString()}` : '';
+      return apiRequest(`/admin/questions${qs}`);
+    },
+    createQuestion: async (data: any): Promise<{ data: IAdminQuestion }> => {
+      return apiRequest('/admin/questions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    updateQuestion: async (id: string, data: any): Promise<{ data: IAdminQuestion }> => {
+      return apiRequest(`/admin/questions/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    deleteQuestion: async (id: string, hardDelete: boolean = false): Promise<{ data: any }> => {
+      return apiRequest(`/admin/questions/${id}${hardDelete ? '?hardDelete=true' : ''}`, {
+        method: 'DELETE',
+      });
+    },
+    provisionDemoAccount: async (data: any): Promise<{ data: any }> => {
+      return apiRequest('/admin/demo-accounts/provision', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
   },
   meetings: meetingService,
   ai: aiServiceClient,
   mous: mouService,
   ugc: ugcService,
   academic: academicService,
+  college: {
+    ...collegeService,
+    requestCollege: async (data: any): Promise<{ data: any }> => {
+      return apiRequest('/colleges/request', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    list: async (params?: any): Promise<{ data: any[]; pagination?: any }> => {
+      const qs = params ? `?${new URLSearchParams(params).toString()}` : '';
+      return apiRequest(`/colleges${qs}`);
+    },
+  },
+  institution: {
+    ...institutionClaimService,
+    dashboard: institutionDashboardService,
+  },
+  resumes: resumeService,
+  careerRoles: careerRoleService,
+  locations: locationService,
+  analytics: analyticsService,
+  twoFactor: twoFactorService,
 };
 
 export default api;

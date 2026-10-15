@@ -77,7 +77,7 @@ export const DigitalPortfolioPage: React.FC = () => {
   };
 
   const downloadCV = () => {
-    alert('Generating signed Digital CV with verified credentials...');
+    window.print();
   };
 
   return (
@@ -191,7 +191,7 @@ export const DigitalPortfolioPage: React.FC = () => {
                     <a
                       href={proj.link}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="text-slate-600 hover:text-emerald-600 p-1"
                     >
                       <ExternalLink className="w-4 h-4" />
@@ -360,7 +360,7 @@ export const DigitalPortfolioPage: React.FC = () => {
               <p className="text-slate-500 mt-1">{previewCert.issuer} • {previewCert.issueDate}</p>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 font-mono text-[11px]">
-              Credential ID: NODALCONNECTOR-CERT-908123-VERIFIED
+              Credential ID: NODALCONNECTOR-CERT-{previewCert.id ? previewCert.id.slice(-6).toUpperCase() : 'VERIFIED'}
             </div>
             <p className="text-slate-400">
               This credential has been verified against the National Higher Education & Skills Registry.
