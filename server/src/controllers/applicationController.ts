@@ -8,6 +8,7 @@ import { Meeting } from '../models/Meeting';
 import { EndedRoom } from '../models/EndedRoom';
 import { emitToUser, markRoomEnded } from '../services/socketService';
 import { AuthRequest } from '../middleware/auth';
+import { dispatchNotification } from '../services/notificationService';
 
 export const getMyApplications = async (req: AuthRequest, res: Response) => {
   try {
@@ -192,7 +193,7 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
 
     await application.save();
 
-    // Create persistent notification for student
+    // Create persistent notification for student via dispatchNotification
     const notifTitle =
       status === 'shortlisted' ? 'Application Shortlisted!' :
       status === 'interview_scheduled' ? 'Technical Interview Scheduled' :
@@ -202,25 +203,28 @@ export const updateApplicationStatus = async (req: Request, res: Response) => {
       ? `/meetings?room=${roomId}&title=${encodeURIComponent(application.opportunityTitle + ' Interview')}`
       : '/student/applications';
 
-    const notif = new Notification({
-      userId: application.userId,
-      title: notifTitle,
-      message: status === 'interview_scheduled'
-        ? `Interview scheduled for "${application.opportunityTitle}" with ${application.companyName}. Click to join your live virtual room.`
-        : `Your application for "${application.opportunityTitle}" at ${application.companyName} is now marked as ${status.replace('_', ' ').toUpperCase()}.`,
-      type: 'application',
-      link: notifLink,
-    });
-    await notif.save();
+    const notifMessage = status === 'interview_scheduled'
+      ? `Interview scheduled for "${application.opportunityTitle}" with ${application.companyName}. Click to join your live virtual room.`
+      : `Your application for "${application.opportunityTitle}" at ${application.companyName} is now marked as ${status.replace('_', ' ').toUpperCase()}.`;
 
-    // Emit live event to student via Socket.IO
+    await dispatchNotification({
+      recipientId: application.userId,
+      recipientType: 'STUDENT',
+      type: status === 'interview_scheduled' ? 'INTERVIEW_SCHEDULED' : 'JOB_APPLICATION_STATUS',
+      title: notifTitle,
+      message: notifMessage,
+      link: notifLink,
+      data: { applicationId: application._id.toString(), opportunityId: application.opportunityId, status },
+      deliveryChannels: status === 'interview_scheduled' ? ['IN_APP', 'EMAIL'] : ['IN_APP'],
+    });
+
+    // Emit live status event to student via Socket.IO
     emitToUser(application.userId, 'application:status_updated', {
       applicationId: application._id.toString(),
       status: application.status,
       interviewDate: application.interviewDate,
       roomId: status === 'interview_scheduled' ? roomId : undefined,
     });
-    emitToUser(application.userId, 'notification:new', notif);
 
     res.json({ data: application });
   } catch (err: any) {

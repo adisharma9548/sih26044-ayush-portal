@@ -15,6 +15,12 @@ import aiRoutes from './aiRoutes';
 import mouRoutes from './mouRoutes';
 import ugcDegreeRoutes from './ugcDegreeRoutes';
 import academicHierarchyRoutes from './academicHierarchyRoutes';
+import collegeRoutes from './collegeRoutes';
+import institutionRoutes from './institutionRoutes';
+import analyticsRoutes from './analyticsRoutes';
+import locationRoutes from './locationRoutes';
+import resumeRoutes from './resumeRoutes';
+import careerRoleRoutes from './careerRoleRoutes';
 
 import { checkEmailConfig } from '../services/emailService';
 
@@ -81,5 +87,12 @@ router.use('/ai', aiRoutes);
 router.use('/mous', mouRoutes);
 router.use('/degrees', ugcDegreeRoutes);
 router.use('/academic', academicHierarchyRoutes);
+router.use('/college', collegeRoutes);
+router.use('/colleges', collegeRoutes);
+router.use('/institution', institutionRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/locations', locationRoutes);
+router.use('/resumes', resumeRoutes);
+router.use('/career-roles', careerRoleRoutes);
 
 export default router;

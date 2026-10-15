@@ -20,10 +20,11 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
+import { VisualLearningPath } from '../../components/learning/VisualLearningPath';
 
 export const LearningRecommendationsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'recommendations' | 'all'>('recommendations');
+  const [activeTab, setActiveTab] = useState<'roadmap' | 'recommendations' | 'all'>('roadmap');
   const [recommendations, setRecommendations] = useState<LearningProgram[]>([]);
   const [allPrograms, setAllPrograms] = useState<LearningProgram[]>([]);
   const [roadmaps, setRoadmaps] = useState<RoadmapGuidance[]>([]);
@@ -100,9 +101,21 @@ export const LearningRecommendationsPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Main Mode Toggle: Gap-Targeted vs All Modules */}
+      {/* Main Mode Toggle: Visual Roadmap vs Gap-Targeted vs All Modules */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setActiveTab('roadmap')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'roadmap'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>🗺️ Visual AI Learning Roadmap</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('recommendations')}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
@@ -112,7 +125,7 @@ export const LearningRecommendationsPage: React.FC = () => {
             }`}
           >
             <Target className="w-3.5 h-3.5" />
-            <span>My Gap-Targeted Recommendations</span>
+            <span>My Gap-Targeted Modules</span>
             {recommendations.length > 0 && (
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
@@ -133,7 +146,7 @@ export const LearningRecommendationsPage: React.FC = () => {
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>All Available Modules</span>
+            <span>All Catalog Modules</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                 activeTab === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
@@ -144,30 +157,34 @@ export const LearningRecommendationsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Format Type Filters */}
-        <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-white border border-slate-200/80 rounded-xl">
-          {[
-            { key: 'all', label: 'All' },
-            { key: 'workshop', label: '🛠️ Labs' },
-            { key: 'course', label: '📖 Courses' },
-            { key: 'certification', label: '🎓 Certs' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setFilterType(tab.key)}
-              className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                filterType === tab.key
-                  ? 'bg-slate-800 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Format Type Filters (only shown for catalog views) */}
+        {activeTab !== 'roadmap' && (
+          <div className="flex items-center gap-1.5 overflow-x-auto p-1 bg-white border border-slate-200/80 rounded-xl">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'workshop', label: '🛠️ Labs' },
+              { key: 'course', label: '📖 Courses' },
+              { key: 'certification', label: '🎓 Certs' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilterType(tab.key)}
+                className={`px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  filterType === tab.key
+                    ? 'bg-slate-800 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {loading ? (
+      {activeTab === 'roadmap' ? (
+        <VisualLearningPath />
+      ) : loading ? (
         <div className="py-16 text-center text-slate-400 text-xs">
           <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           Analyzing competency benchmarks and catalog modules...

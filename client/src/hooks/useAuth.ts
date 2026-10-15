@@ -12,6 +12,7 @@ export const useAuth = () => {
     login,
     signup,
     logout,
+    checkAuth,
     updateProfile,
     uploadAvatar,
     removeAvatar,
@@ -28,6 +29,8 @@ export const useAuth = () => {
     login,
     signup,
     logout,
+    checkAuth,
+    refreshUser: checkAuth,
     updateProfile,
     uploadAvatar,
     removeAvatar,
@@ -35,6 +38,7 @@ export const useAuth = () => {
     isJobSeeker: role === 'jobseeker',
     isIndustry: role === 'industry',
     isAcademician: role === 'academician',
+    isInstitution: role === 'institution',
     isAdmin: role === 'admin',
   };
 };

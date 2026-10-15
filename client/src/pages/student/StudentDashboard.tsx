@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../services/api';
-import { Internship, Job, SkillProfile } from '../../types';
+import { Internship, Job, SkillProfile, StudentAnalytics } from '../../types';
 import { StatCard } from '../../components/common/StatCard';
 import { GaugeScore } from '../../components/common/GaugeScore';
 import { Badge } from '../../components/common/Badge';
 import { UserAvatar } from '../../components/common/UserAvatar';
 import { AiOnboardingModal } from '../../components/student/AiOnboardingModal';
+import { ProfileCompletionCard } from '../../components/analytics/AnalyticsCharts';
 import {
   Award,
   Briefcase,
@@ -32,19 +33,25 @@ export const StudentDashboard: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [applicationsCount, setApplicationsCount] = useState(0);
   const [upcomingMeeting, setUpcomingMeeting] = useState<any | null>(null);
+  const [analytics, setAnalytics] = useState<StudentAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAiModal, setShowAiModal] = useState(false);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [profileRes, intRes, jobRes, appRes, meetRes] = await Promise.allSettled([
+      const [profileRes, intRes, jobRes, appRes, meetRes, analyticsRes] = await Promise.allSettled([
         api.skills.getProfile(),
         api.internships.getAll(),
         api.jobs.getAll(),
         api.applications.getMyApplications(),
         api.meetings.getMyMeetings(),
+        api.analytics.getStudent(),
       ]);
+
+      if (analyticsRes.status === 'fulfilled') {
+        setAnalytics(analyticsRes.value.data);
+      }
 
       if (profileRes.status === 'fulfilled') {
         const prof = profileRes.value.data;
@@ -177,6 +184,29 @@ export const StudentDashboard: React.FC = () => {
             <span>Take Diagnostic Assessment</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* Real-time Profile Completion & Metric Analytics */}
+      {analytics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ProfileCompletionCard completion={analytics.profileCompletion} />
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-4">
+            <div>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Average Skill Match
+              </span>
+              <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                {analytics.averageSkillMatch > 0 ? `${analytics.averageSkillMatch}%` : 'Assessment Active'}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                {analytics.applicationsViewed} of {analytics.applicationsSent} applications reviewed by recruiters.
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-base flex-shrink-0 border border-blue-100">
+              <TrendingUp className="w-6 h-6" aria-hidden="true" />
+            </div>
+          </div>
         </div>
       )}
 

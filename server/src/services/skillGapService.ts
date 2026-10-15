@@ -189,6 +189,7 @@ export const analyzeSkillGaps = async (
         gapPercentage: 0,
         status: 'MATCHED',
         priority: 'Low',
+        source: foundStudentSkill?.source || 'resume',
       });
 
       breakdown.push({
@@ -224,6 +225,7 @@ export const analyzeSkillGaps = async (
         priority,
         recommendedProgramId: matchedProg ? (matchedProg._id?.toString() || matchedProg.id) : undefined,
         reason: `Student level is ${studentLevel}%, requiring ${targetLevel}% (${gap}-point gap).`,
+        source: foundStudentSkill?.source || 'resume',
       });
 
       breakdown.push({
